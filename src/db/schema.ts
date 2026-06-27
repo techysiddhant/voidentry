@@ -1,11 +1,11 @@
-import { sqliteTable, text, integer } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, uniqueIndex } from "drizzle-orm/sqlite-core";
 import { v7 as uuidv7 } from "uuid";
 
 export const user = sqliteTable("user", {
     id: text("id").primaryKey().$defaultFn(() => uuidv7()),
     name: text("name").notNull(),
     email: text("email").notNull().unique(),
-    emailVerified: integer("email_verified").notNull(),
+    emailVerified: integer("email_verified", { mode: "boolean" }).notNull(),
     image: text("image"),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
@@ -22,6 +22,7 @@ export const session = sqliteTable("session", {
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
 });
 
+
 export const account = sqliteTable("account", {
     id: text("id").primaryKey().$defaultFn(() => uuidv7()),
     userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
@@ -36,7 +37,12 @@ export const account = sqliteTable("account", {
     password: text("password"),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
-});
+}, (table) => ({
+    providerAccountUnique: uniqueIndex("account_provider_account_unique").on(
+        table.providerId,
+        table.accountId,
+    ),
+}));
 
 export const verification = sqliteTable("verification", {
     id: text("id").primaryKey().$defaultFn(() => uuidv7()),

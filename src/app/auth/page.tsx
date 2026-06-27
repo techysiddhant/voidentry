@@ -138,7 +138,11 @@ export default function AuthPage() {
 
                         {/* Error Alert */}
                         {errorMsg && (
-                            <div className="mb-6 p-4 bg-red-500/10 brutal-border border-red-500 text-red-500 font-mono text-xs uppercase tracking-wider text-center">
+                            <div
+                                role="alert"
+                                aria-live="assertive"
+                                className="mb-6 p-4 bg-red-500/10 brutal-border border-red-500 text-red-500 font-mono text-xs uppercase tracking-wider text-center"
+                            >
                                 {errorMsg}
                             </div>
                         )}
@@ -166,12 +170,15 @@ export default function AuthPage() {
                                         >
                                             <Input
                                                 id={field.name}
+                                                name="name"
                                                 type="text"
+                                                autoComplete="name"
                                                 value={field.state.value}
                                                 onChange={(e) => field.handleChange(e.target.value)}
                                                 onBlur={field.handleBlur}
                                                 placeholder="John Doe"
                                                 aria-invalid={field.state.meta.errors.length > 0}
+                                                aria-describedby={field.state.meta.errors.length > 0 ? `${field.name}-error` : undefined}
                                                 className="mt-1.5 w-full brutal-border bg-paper px-3 py-2.5 font-mono text-sm focus:outline-none focus:brutal-shadow-sm rounded-none border-0 border-inherit shadow-none h-auto"
                                             />
                                         </FieldWrapper>
@@ -192,12 +199,15 @@ export default function AuthPage() {
                                     >
                                         <Input
                                             id={field.name}
+                                            name="email"
                                             type="email"
+                                            autoComplete="email"
                                             value={field.state.value}
                                             onChange={(e) => field.handleChange(e.target.value)}
                                             onBlur={field.handleBlur}
                                             placeholder="you@domain.com"
                                             aria-invalid={field.state.meta.errors.length > 0}
+                                            aria-describedby={field.state.meta.errors.length > 0 ? `${field.name}-error` : undefined}
                                             className="mt-1.5 w-full brutal-border bg-paper px-3 py-2.5 font-mono text-sm focus:outline-none focus:brutal-shadow-sm rounded-none border-0 border-inherit shadow-none h-auto"
                                         />
                                     </FieldWrapper>
@@ -217,12 +227,15 @@ export default function AuthPage() {
                                     >
                                         <Input
                                             id={field.name}
+                                            name="password"
                                             type="password"
+                                            autoComplete={mode === "signup" ? "new-password" : "current-password"}
                                             value={field.state.value}
                                             onChange={(e) => field.handleChange(e.target.value)}
                                             onBlur={field.handleBlur}
                                             placeholder="••••••••"
                                             aria-invalid={field.state.meta.errors.length > 0}
+                                            aria-describedby={field.state.meta.errors.length > 0 ? `${field.name}-error` : undefined}
                                             className="mt-1.5 w-full brutal-border bg-paper px-3 py-2.5 font-mono text-sm focus:outline-none focus:brutal-shadow-sm rounded-none border-0 border-inherit shadow-none h-auto"
                                         />
                                     </FieldWrapper>
@@ -277,7 +290,11 @@ function FieldWrapper({
             </Label>
             {children}
             {error && (
-                <p className="mt-1 font-mono text-[10px] uppercase tracking-widest text-red-500">
+                <p
+                    id={`${htmlFor}-error`}
+                    role="alert"
+                    className="mt-1 font-mono text-[10px] uppercase tracking-widest text-red-500"
+                >
                     {error}
                 </p>
             )}

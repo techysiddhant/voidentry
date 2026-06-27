@@ -75,6 +75,15 @@
   --border: var(--ink);
   --input: var(--ink);
   --ring: var(--ink);
+
+  --sidebar-background: var(--paper);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--ink);
+  --sidebar-primary-foreground: var(--paper);
+  --sidebar-accent: var(--secondary);
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: var(--ink);
+  --sidebar-ring: var(--ink);
 }
 
 .dark {
@@ -102,6 +111,15 @@
   --border: var(--ink);
   --input: var(--ink);
   --ring: var(--ink);
+
+  --sidebar-background: var(--paper);
+  --sidebar-foreground: var(--ink);
+  --sidebar-primary: var(--ink);
+  --sidebar-primary-foreground: var(--paper);
+  --sidebar-accent: var(--secondary);
+  --sidebar-accent-foreground: var(--ink);
+  --sidebar-border: var(--ink);
+  --sidebar-ring: var(--ink);
 }
 
 @layer base {
