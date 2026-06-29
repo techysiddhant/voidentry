@@ -13,16 +13,20 @@
 		"cf-typegen": "wrangler types --env-interface CloudflareEnv ./cloudflare-env.d.ts",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate:local": "wrangler d1 migrations apply DB --local",
-		"db:migrate:remote": "wrangler d1 migrations apply DB --remote"
+		"db:migrate:remote": "wrangler d1 migrations apply DB --remote",
+		"db:studio": "drizzle-kit studio",
+		"db:studio:stop":"lsof -ti :4983 | xargs kill -9 || true"
 	},
 	"dependencies": {
 		"@better-auth/drizzle-adapter": "^1.6.22",
 		"@opennextjs/cloudflare": "^1.19.9",
+		"@sentry/nextjs": "^10",
 		"@tanstack/react-devtools": "^0.10.8",
 		"@tanstack/react-form": "^1.33.0",
 		"@tanstack/react-form-devtools": "^0.2.29",
 		"@tanstack/react-form-nextjs": "^1.33.0",
 		"@tanstack/react-query": "^5.101.1",
+		"axios": "^1.18.1",
 		"better-auth": "^1.6.22",
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",
@@ -42,6 +46,7 @@
 	},
 	"devDependencies": {
 		"@eslint/eslintrc": "^3",
+		"@libsql/client": "^0.17.4",
 		"@tailwindcss/postcss": "^4",
 		"@types/node": "^26.0.0",
 		"@types/react": "^19.1.7",

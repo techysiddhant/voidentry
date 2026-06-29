@@ -52,7 +52,7 @@ export function NavUser() {
                 fetchOptions: {
                     onSuccess: () => {
                         toast.success("Signed out.");
-                        router.push("/auth?mode=signin");
+                        router.replace("/auth?mode=signin");
                     },
                     onError: (ctx) => {
                         toast.error(ctx.error.message ?? "Failed to sign out.");

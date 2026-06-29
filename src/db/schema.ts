@@ -18,8 +18,8 @@ export const session = sqliteTable("session", {
     expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
     ipAddress: text("ip_address"),
     userAgent: text("user_agent"),
-    createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).$onUpdateFn(() => new Date()).notNull(),
 });
 
 
@@ -51,4 +51,43 @@ export const verification = sqliteTable("verification", {
     expiresAt: integer("expires_at", { mode: "timestamp_ms" }).notNull(),
     createdAt: integer("created_at", { mode: "timestamp_ms" }).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
+});
+
+export const paymentMethodType = sqliteTable("payment_method_type", {
+    id: text("id").primaryKey().$defaultFn(() => uuidv7()),
+    code: text("code").notNull().unique(),
+    name: text("name").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).$onUpdateFn(() => new Date()).notNull(),
+});
+
+export const userPreferences = sqliteTable("user_preferences", {
+    id: text("id").primaryKey().$defaultFn(() => uuidv7()),
+    userId: text("user_id").notNull().unique().references(() => user.id, { onDelete: "cascade" }),
+    currency: text("currency").notNull().default("INR"),
+    defaultCalendar: integer("default_calendar", { mode: "boolean" }).notNull().default(false),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).$onUpdateFn(() => new Date()).notNull(),
+});
+
+export const contact = sqliteTable("contact", {
+    id: text("id").primaryKey().$defaultFn(() => uuidv7()),
+    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).$onUpdateFn(() => new Date()).notNull(),
+    deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+}, (table) => ({
+    userContactUnique: uniqueIndex("contact_user_name_unique").on(table.userId, table.name),
+}));
+
+export const paymentMethod = sqliteTable("payment_method", {
+    id: text("id").primaryKey().$defaultFn(() => uuidv7()),
+    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    typeCode: text("type_code").notNull().references(() => paymentMethodType.code),
+    label: text("label").notNull(),
+    hint: text("hint"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).$onUpdateFn(() => new Date()).notNull(),
+    deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
 });

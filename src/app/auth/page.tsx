@@ -79,7 +79,7 @@ export default function AuthPage() {
                 toast.success("Signed in successfully!");
             }
 
-            router.push("/app");
+            router.replace("/app");
         },
     });
 
@@ -160,7 +160,10 @@ export default function AuthPage() {
                             {mode === "signup" && (
                                 <form.Field
                                     name="name"
-                                    validators={{ onChange: ({ value }) => validateName(value) }}
+                                    validators={{
+                                        onChange: ({ value }) => validateName(value),
+                                        onBlur: ({ value }) => validateName(value),
+                                    }}
                                 >
                                     {(field) => (
                                         <FieldWrapper
@@ -189,7 +192,10 @@ export default function AuthPage() {
                             {/* Email field */}
                             <form.Field
                                 name="email"
-                                validators={{ onChange: ({ value }) => validateEmail(value) }}
+                                validators={{
+                                    onChange: ({ value }) => validateEmail(value),
+                                    onBlur: ({ value }) => validateEmail(value),
+                                }}
                             >
                                 {(field) => (
                                     <FieldWrapper
@@ -217,7 +223,10 @@ export default function AuthPage() {
                             {/* Password field */}
                             <form.Field
                                 name="password"
-                                validators={{ onChange: ({ value }) => validatePassword(value) }}
+                                validators={{
+                                    onChange: ({ value }) => validatePassword(value),
+                                    onBlur: ({ value }) => validatePassword(value),
+                                }}
                             >
                                 {(field) => (
                                     <FieldWrapper
