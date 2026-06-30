@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { useForm } from "@tanstack/react-form";
+import { useQueryClient } from "@tanstack/react-query";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/auth-client";
@@ -37,6 +38,7 @@ function validatePassword(value: string): string | undefined {
 export default function AuthPage() {
     const router = useRouter();
     const searchParams = useSearchParams();
+    const queryClient = useQueryClient();
     const mode: AuthMode =
         searchParams.get("mode") === "signup" ? "signup" : "signin";
 
@@ -79,6 +81,7 @@ export default function AuthPage() {
                 toast.success("Signed in successfully!");
             }
 
+            queryClient.clear();
             router.replace("/app");
         },
     });

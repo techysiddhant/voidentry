@@ -5,6 +5,7 @@ export interface SettingsPayload {
     preferences: {
         currency: string;
         defaultCalendar: boolean;
+        activeCycleId?: string | null;
     };
     contacts: Contact[];
     paymentMethods: PaymentMethod[];
@@ -14,7 +15,7 @@ export const settingsApi = {
     getSettings: (): Promise<SettingsPayload> =>
         http.get("/settings").then((res) => res.data),
 
-    updatePreferences: (data: { defaultCalendar: boolean; currency: string }) =>
+    updatePreferences: (data: { defaultCalendar?: boolean; currency?: string; activeCycleId?: string | null }) =>
         http.patch("/settings/preferences", data).then((res) => res.data),
 
     addContact: (name: string): Promise<Contact> =>

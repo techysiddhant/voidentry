@@ -47,6 +47,7 @@ export async function GET() {
             preferences: {
                 currency: prefs.currency,
                 defaultCalendar: prefs.defaultCalendar,
+                activeCycleId: prefs.activeCycleId,
             },
             contacts: [
                 { id: "you", name: "You" }, // Always prepend the virtual self-contact

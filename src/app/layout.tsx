@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import Providers from "@/components/providers";
 import { Toaster } from "@/components/ui/sonner";
 
-const inter = Inter({subsets:['latin'],variable:'--font-sans'});
+const inter = Inter({ subsets: ['latin'], variable: '--font-sans' });
 
 const geistSans = Geist({
 	variable: "--font-geist-sans",
@@ -34,7 +34,7 @@ export default function RootLayout({
 			</head>
 			<body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
 				<Providers>{children}</Providers>
-				<Toaster />
+				<Toaster position="top-right" closeButton />
 			</body>
 		</html>
 	);

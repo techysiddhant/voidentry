@@ -1,19 +1,45 @@
 "use client";
 
 import Link from "next/link";
+import { useQuery } from "@tanstack/react-query";
 import { SidebarGroup, SidebarGroupContent } from "@/components/ui/sidebar";
 import { formatDateRange } from "@/lib/utils";
-import { Cycle } from "@/lib/expense-store";
-
-// Mocking active cycle until backend is wired
-export const mockCycle: Cycle = {
-    id: "active-cycle",
-    label: "June 2026",
-    start: "2026-06-01",
-    end: "2026-06-30",
-};
+import { settingsApi } from "@/lib/api/settings";
+import { cyclesApi } from "@/lib/api/cycles";
+import { QUERY_KEYS } from "@/lib/query-keys";
+import { Skeleton } from "@/components/ui/skeleton";
 
 export function ActiveCycleWidget() {
+    const { data: settings, isLoading: isSettingsLoading } = useQuery({
+        queryKey: QUERY_KEYS.SETTINGS,
+        queryFn: settingsApi.getSettings,
+    });
+
+    const { data: cycles, isLoading: isCyclesLoading } = useQuery({
+        queryKey: QUERY_KEYS.CYCLES,
+        queryFn: cyclesApi.getCycles,
+    });
+
+    const isLoading = isSettingsLoading || isCyclesLoading;
+    const activeCycleId = settings?.preferences?.activeCycleId;
+    const activeCycle = cycles?.find((c) => c.id === activeCycleId);
+
+    if (isLoading) {
+        return (
+            <SidebarGroup className="px-5 py-4 border-b-2 border-ink group-data-[collapsible=icon]:hidden">
+                <SidebarGroupContent className="space-y-2">
+                    <Skeleton className="h-3 w-16 bg-ink/10 rounded-none" />
+                    <Skeleton className="h-7 w-32 bg-ink/10 rounded-none" />
+                    <Skeleton className="h-4 w-24 bg-ink/10 rounded-none" />
+                </SidebarGroupContent>
+            </SidebarGroup>
+        );
+    }
+
+    if (!activeCycle) {
+        return null;
+    }
+
     return (
         <SidebarGroup className="px-5 py-4 border-b-2 border-ink group-data-[collapsible=icon]:hidden">
             <SidebarGroupContent>
@@ -21,10 +47,10 @@ export function ActiveCycleWidget() {
                     active cycle
                 </div>
                 <div className="mt-1 font-serif text-2xl leading-tight text-ink">
-                    {mockCycle.label}
+                    {activeCycle.label}
                 </div>
                 <div className="mt-0.5 font-mono text-[11px] text-mute">
-                    {formatDateRange(mockCycle.start, mockCycle.end)}
+                    {formatDateRange(activeCycle.start, activeCycle.end)}
                 </div>
                 <Link
                     href="/app/cycles"

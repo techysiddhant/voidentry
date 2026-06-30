@@ -52,6 +52,7 @@ export type Cycle = {
     label: string;
     start: string; // ISO date
     end: string;   // ISO date
+    total?: number;
 };
 export type PaymentMethod = {
     id: string;

@@ -15,7 +15,7 @@
 		"db:migrate:local": "wrangler d1 migrations apply DB --local",
 		"db:migrate:remote": "wrangler d1 migrations apply DB --remote",
 		"db:studio": "drizzle-kit studio",
-		"db:studio:stop":"lsof -ti :4983 | xargs kill -9 || true"
+		"db:studio:stop": "lsof -ti :4983 | xargs kill -9 || true"
 	},
 	"dependencies": {
 		"@better-auth/drizzle-adapter": "^1.6.22",
@@ -42,7 +42,8 @@
 		"tailwind-merge": "^3.6.0",
 		"tw-animate-css": "^1.4.0",
 		"uuid": "^14.0.1",
-		"zod": "^4.4.3"
+		"zod": "^4.4.3",
+		"zustand": "^5.0.14"
 	},
 	"devDependencies": {
 		"@eslint/eslintrc": "^3",

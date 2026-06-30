@@ -15,6 +15,7 @@ export interface SettingsState {
     preferences: {
         currency: string;
         defaultCalendar: boolean;
+        activeCycleId?: string | null;
     };
     contacts: Contact[];
     paymentMethods: PaymentMethod[];

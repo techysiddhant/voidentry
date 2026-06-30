@@ -19,3 +19,14 @@ export function formatDateRange(start: string, end: string) {
   const e = new Date(end + "T00:00:00Z").toLocaleDateString("en-US", fmt);
   return `${s} → ${e}`;
 }
+
+export function getCalendarMonth() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  return {
+    start: new Date(y, m, 1).toISOString().slice(0, 10),
+    end: new Date(y, m + 1, 0).toISOString().slice(0, 10),
+    label: now.toLocaleString("default", { month: "long", year: "numeric" }),
+  };
+}

@@ -29,6 +29,20 @@
       "when": 1782595072152,
       "tag": "0003_glorious_wendell_vaughn",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1782741302585,
+      "tag": "0004_new_richard_fisk",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1782763682448,
+      "tag": "0005_last_oracle",
+      "breakpoints": true
     }
   ]
 }
