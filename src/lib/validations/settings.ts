@@ -32,3 +32,24 @@ export const cycleSchema = z.object({
     message: "Start date must be before or equal to end date, and both must be valid dates",
     path: ["end"],
 });
+
+export const expenseInputSchema = z.object({
+    amount: z.number().positive("Amount must be greater than zero"),
+    note: z.string().trim().min(1, "Note is required").max(100),
+    category: z.string().min(1, "Category is required"),
+    subCategory: z.string().trim().max(100).optional().nullable(),
+    date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
+    payment: z.object({
+        type: z.string().min(1, "Payment type is required"),
+        cardName: z.string().trim().max(100).optional().nullable(),
+        methodId: z.string().optional().nullable(),
+    }),
+    comment: z.string().trim().max(500).optional().nullable(),
+    split: z.object({
+        mode: z.enum(["equal", "exact"]),
+        participants: z.array(z.object({
+            contactId: z.string(),
+            share: z.number().nonnegative(),
+        })),
+    }).optional().nullable(),
+});

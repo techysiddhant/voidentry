@@ -4,8 +4,9 @@ import getAuth from "@/lib/auth";
 import { getDb } from "@/db/client";
 import { cycle, userPreferences } from "@/db/schema";
 import { cycleSchema } from "@/lib/validations/settings";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq, isNull, ne } from "drizzle-orm";
 import { getCalendarMonth } from "@/lib/utils";
+import { v7 as uuidv7 } from "uuid";
 
 export async function PUT(
     request: Request,
@@ -122,47 +123,54 @@ export async function DELETE(
             );
         }
 
-        // Run full delete-and-reassign logic atomically inside a transaction
-        await db.transaction(async (tx) => {
-            // Soft delete the cycle
-            await tx
-                .update(cycle)
-                .set({ deletedAt: new Date() })
-                .where(and(eq(cycle.id, id), eq(cycle.userId, userId)));
+        const prefs = await db.query.userPreferences.findFirst({
+            where: eq(userPreferences.userId, userId),
+        });
 
-            // Check if this was the active cycle. If so, select another one or bootstrap a new one.
-            const prefs = await tx.query.userPreferences.findFirst({
-                where: eq(userPreferences.userId, userId),
+        const isActiveCycle = prefs?.activeCycleId === id;
+
+        const batchQueries: any[] = [
+            db.update(cycle)
+                .set({ deletedAt: new Date() })
+                .where(and(eq(cycle.id, id), eq(cycle.userId, userId)))
+        ];
+
+        if (isActiveCycle) {
+            // Find another active cycle that is not the one being deleted
+            const remaining = await db.query.cycle.findFirst({
+                where: and(
+                    eq(cycle.userId, userId),
+                    ne(cycle.id, id),
+                    isNull(cycle.deletedAt)
+                ),
             });
 
-            if (prefs?.activeCycleId === id) {
-                const remaining = await tx.query.cycle.findFirst({
-                    where: and(eq(cycle.userId, userId), isNull(cycle.deletedAt)),
-                });
+            let newActiveId = remaining?.id || null;
 
-                let newActiveId = remaining?.id || null;
-
-                if (!newActiveId) {
-                    // If no cycles are left, bootstrap a default calendar month cycle
-                    const cal = getCalendarMonth();
-                    const [newCycle] = await tx
-                        .insert(cycle)
-                        .values({
-                            userId,
-                            label: cal.label,
-                            start: cal.start,
-                            end: cal.end,
-                        })
-                        .returning();
-                    newActiveId = newCycle.id;
-                }
-
-                await tx
-                    .update(userPreferences)
-                    .set({ activeCycleId: newActiveId })
-                    .where(eq(userPreferences.userId, userId));
+            if (!newActiveId) {
+                const newCycleId = uuidv7();
+                const cal = getCalendarMonth();
+                batchQueries.push(
+                    db.insert(cycle).values({
+                        id: newCycleId,
+                        userId,
+                        label: cal.label,
+                        start: cal.start,
+                        end: cal.end,
+                    })
+                );
+                newActiveId = newCycleId;
             }
-        });
+
+            batchQueries.push(
+                db.update(userPreferences)
+                    .set({ activeCycleId: newActiveId })
+                    .where(eq(userPreferences.userId, userId))
+            );
+        }
+
+        // Run D1 atomic batch write
+        await db.batch(batchQueries as [any, ...any[]]);
 
         return NextResponse.json({ success: true });
     } catch (error) {

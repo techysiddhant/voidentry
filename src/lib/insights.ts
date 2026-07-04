@@ -111,6 +111,9 @@ export const CATEGORY_FILL: Record<Category, string> = {
     transport: "var(--yellow)",
     groceries: "var(--teal)",
     housing: "var(--ink)",
+    utilities: "var(--teal)",
     subs: "var(--pink)",
+    personal: "var(--pink)",
+    travel: "var(--yellow)",
     misc: "var(--teal)",
 };

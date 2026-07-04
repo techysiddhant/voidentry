@@ -9,6 +9,8 @@ export interface SettingsPayload {
     };
     contacts: Contact[];
     paymentMethods: PaymentMethod[];
+    categories: { id: string; name: string; color: string }[];
+    subCategories: { id: string; categoryId: string; name: string }[];
 }
 
 export const settingsApi = {

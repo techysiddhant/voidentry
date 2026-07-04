@@ -1,4 +1,4 @@
-import { sqliteTable, text, integer, uniqueIndex, foreignKey } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, uniqueIndex, foreignKey, index } from "drizzle-orm/sqlite-core";
 import { sql } from "drizzle-orm";
 import { v7 as uuidv7 } from "uuid";
 
@@ -115,4 +115,57 @@ export const paymentMethod = sqliteTable("payment_method", {
     createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).$onUpdateFn(() => new Date()).notNull(),
     deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+});
+
+export const category = sqliteTable("category", {
+    id: text("id").primaryKey().$defaultFn(() => uuidv7()),
+    userId: text("user_id").references(() => user.id, { onDelete: "cascade" }), // null = global default
+    name: text("name").notNull(),
+    color: text("color").notNull().default("bg-teal"),
+    deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+}, (table) => ({
+    userCategoryUnique: uniqueIndex("category_user_name_unique")
+        .on(table.userId, table.name)
+        .where(sql`deleted_at IS NULL`),
+}));
+
+export const subCategory = sqliteTable("sub_category", {
+    id: text("id").primaryKey().$defaultFn(() => uuidv7()),
+    categoryId: text("category_id").notNull().references(() => category.id, { onDelete: "cascade" }),
+    userId: text("user_id").references(() => user.id, { onDelete: "cascade" }), // null = global default
+    name: text("name").notNull(),
+    deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+}, (table) => ({
+    categorySubCategoryUnique: uniqueIndex("sub_category_category_user_name_unique")
+        .on(table.categoryId, table.userId, table.name)
+        .where(sql`deleted_at IS NULL`),
+}));
+
+export const expense = sqliteTable("expense", {
+    id: text("id").primaryKey().$defaultFn(() => uuidv7()),
+    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    cycleId: text("cycle_id").notNull().references(() => cycle.id, { onDelete: "cascade" }),
+    amount: integer("amount").notNull(), // stored in paise/cents
+    note: text("note").notNull(),
+    categoryId: text("category_id").notNull().references(() => category.id),
+    subCategoryId: text("sub_category_id").references(() => subCategory.id),
+    date: text("date").notNull(), // YYYY-MM-DD
+    paymentMethodId: text("payment_method_id").references(() => paymentMethod.id, { onDelete: "set null" }),
+    paymentType: text("payment_type").notNull(), // cash, card, upi, netbanking, wallet (matching type code)
+    paymentCardName: text("payment_card_name"),
+    comment: text("comment"),
+    splitMode: text("split_mode"), // equal, exact
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).$onUpdateFn(() => new Date()).notNull(),
+    deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+}, (table) => ({
+    expenseUserCycleIndex: index("expense_user_cycle_idx").on(table.userId, table.cycleId),
+    expenseUserDateIndex: index("expense_user_date_idx").on(table.userId, table.date),
+}));
+
+export const expenseSplitParticipant = sqliteTable("expense_split_participant", {
+    id: text("id").primaryKey().$defaultFn(() => uuidv7()),
+    expenseId: text("expense_id").notNull().references(() => expense.id, { onDelete: "cascade" }),
+    contactId: text("contact_id").references(() => contact.id, { onDelete: "cascade" }), // null = "you"
+    share: integer("share").notNull(), // share in paise/cents
 });

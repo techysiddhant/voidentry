@@ -6,6 +6,7 @@ import { cycle, userPreferences } from "@/db/schema";
 import { cycleSchema } from "@/lib/validations/settings";
 import { and, eq, isNull } from "drizzle-orm";
 import { getCalendarMonth } from "@/lib/utils";
+import { v7 as uuidv7 } from "uuid";
 
 export async function GET() {
     const auth = getAuth();
@@ -28,36 +29,35 @@ export async function GET() {
 
         // 2. If no cycles exist, bootstrap the current month as the first cycle atomically
         if (userCycles.length === 0) {
-            let createdCycle: typeof cycle.$inferSelect | undefined = undefined;
-            await db.transaction(async (tx) => {
-                const cal = getCalendarMonth();
-                const [newCycle] = await tx
-                    .insert(cycle)
-                    .values({
-                        userId,
-                        label: cal.label,
-                        start: cal.start,
-                        end: cal.end,
-                    })
-                    .returning();
+            const cycleId = uuidv7();
+            const cal = getCalendarMonth();
 
-                // Set this newly created cycle as active in user preferences
-                await tx
-                    .insert(userPreferences)
+            await db.batch([
+                db.insert(cycle).values({
+                    id: cycleId,
+                    userId,
+                    label: cal.label,
+                    start: cal.start,
+                    end: cal.end,
+                }),
+                db.insert(userPreferences)
                     .values({
                         userId,
-                        activeCycleId: newCycle.id,
+                        activeCycleId: cycleId,
                     })
                     .onConflictDoUpdate({
                         target: userPreferences.userId,
-                        set: { activeCycleId: newCycle.id },
-                    });
+                        set: { activeCycleId: cycleId, updatedAt: new Date() },
+                    })
+            ]);
 
-                createdCycle = newCycle;
-            });
+            const [newCycle] = await db
+                .select()
+                .from(cycle)
+                .where(eq(cycle.id, cycleId));
 
-            if (createdCycle) {
-                userCycles = [createdCycle];
+            if (newCycle) {
+                userCycles = [newCycle];
             }
         }
 
@@ -105,39 +105,36 @@ export async function POST(request: Request) {
         const db = getDb();
 
         try {
-            let createdCycle: typeof cycle.$inferSelect | undefined = undefined;
-            // Run creation and activeCycleId assignment atomically in a transaction
-            await db.transaction(async (tx) => {
-                // Insert new cycle — database handles unique constraints on active cycles
-                const [newCycle] = await tx
-                    .insert(cycle)
-                    .values({
-                        userId,
-                        label,
-                        start,
-                        end,
-                    })
-                    .returning();
+            const cycleId = uuidv7();
 
-                // Automatically set as active cycle
-                await tx
-                    .insert(userPreferences)
+            await db.batch([
+                db.insert(cycle).values({
+                    id: cycleId,
+                    userId,
+                    label,
+                    start,
+                    end,
+                }),
+                db.insert(userPreferences)
                     .values({
                         userId,
-                        activeCycleId: newCycle.id,
+                        activeCycleId: cycleId,
                     })
                     .onConflictDoUpdate({
                         target: userPreferences.userId,
-                        set: { activeCycleId: newCycle.id },
-                    });
+                        set: { activeCycleId: cycleId, updatedAt: new Date() },
+                    })
+            ]);
 
-                createdCycle = newCycle;
-            });
+            const [createdCycle] = await db
+                .select()
+                .from(cycle)
+                .where(eq(cycle.id, cycleId));
 
             if (!createdCycle) {
                 throw new Error("Failed to create cycle");
             }
-            return NextResponse.json({ ...(createdCycle as typeof cycle.$inferSelect), total: 0 });
+            return NextResponse.json({ ...createdCycle, total: 0 });
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : "";
             if (msg.includes("UNIQUE constraint failed")) {

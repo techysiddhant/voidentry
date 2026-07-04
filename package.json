@@ -14,6 +14,8 @@
 		"db:generate": "drizzle-kit generate",
 		"db:migrate:local": "wrangler d1 migrations apply DB --local",
 		"db:migrate:remote": "wrangler d1 migrations apply DB --remote",
+		"db:seed:local": "wrangler d1 execute DB --local --file=./src/db/seed.sql",
+		"db:seed:remote": "wrangler d1 execute DB --remote --file=./src/db/seed.sql",
 		"db:studio": "drizzle-kit studio",
 		"db:studio:stop": "lsof -ti :4983 | xargs kill -9 || true"
 	},

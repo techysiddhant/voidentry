@@ -2,8 +2,8 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import getAuth from "@/lib/auth";
 import { getDb } from "@/db/client";
-import { userPreferences, contact, paymentMethod } from "@/db/schema";
-import { and, eq, isNull } from "drizzle-orm";
+import { userPreferences, contact, paymentMethod, category, subCategory } from "@/db/schema";
+import { and, eq, isNull, or } from "drizzle-orm";
 
 export async function GET() {
     const auth = getAuth();
@@ -43,6 +43,22 @@ export async function GET() {
             where: and(eq(paymentMethod.userId, userId), isNull(paymentMethod.deletedAt)),
         });
 
+        // 4. Get categories (global where userId is null + custom where userId matches user)
+        const categoriesList = await db.query.category.findMany({
+            where: and(
+                or(isNull(category.userId), eq(category.userId, userId)),
+                isNull(category.deletedAt)
+            ),
+        });
+
+        // 5. Get subcategories (global where userId is null + custom where userId matches user)
+        const subCategoriesList = await db.query.subCategory.findMany({
+            where: and(
+                or(isNull(subCategory.userId), eq(subCategory.userId, userId)),
+                isNull(subCategory.deletedAt)
+            ),
+        });
+
         return NextResponse.json({
             preferences: {
                 currency: prefs.currency,
@@ -58,6 +74,16 @@ export async function GET() {
                 type: m.typeCode, // Map typeCode to type
                 label: m.label,
                 hint: m.hint,
+            })),
+            categories: categoriesList.map((c) => ({
+                id: c.id,
+                name: c.name,
+                color: c.color,
+            })),
+            subCategories: subCategoriesList.map((sc) => ({
+                id: sc.id,
+                categoryId: sc.categoryId,
+                name: sc.name,
             })),
         });
     } catch (error) {

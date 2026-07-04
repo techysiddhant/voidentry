@@ -1,3 +1,5 @@
+"use client";
+
 import { Category, CATEGORY_META, type Expense } from "@/lib/expense-store";
 import { useMemo } from "react";
 import { totalsByCategory, CATEGORY_FILL } from "@/lib/insights";
