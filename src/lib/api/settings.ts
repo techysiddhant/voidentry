@@ -1,5 +1,6 @@
 import { http } from "../http";
 import type { Contact, PaymentMethod } from "@/components/settings/types";
+import type { CatalogCategory, CatalogSubCategory } from "@/types/catalog";
 
 export interface SettingsPayload {
     preferences: {
@@ -9,8 +10,8 @@ export interface SettingsPayload {
     };
     contacts: Contact[];
     paymentMethods: PaymentMethod[];
-    categories: { id: string; name: string; color: string }[];
-    subCategories: { id: string; categoryId: string; name: string }[];
+    categories: CatalogCategory[];
+    subCategories: CatalogSubCategory[];
 }
 
 export const settingsApi = {

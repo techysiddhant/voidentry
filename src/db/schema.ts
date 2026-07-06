@@ -120,10 +120,15 @@ export const paymentMethod = sqliteTable("payment_method", {
 export const category = sqliteTable("category", {
     id: text("id").primaryKey().$defaultFn(() => uuidv7()),
     userId: text("user_id").references(() => user.id, { onDelete: "cascade" }), // null = global default
+    code: text("code").notNull(),
     name: text("name").notNull(),
     color: text("color").notNull().default("bg-teal"),
+    sortOrder: integer("sort_order").notNull().default(0),
     deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
 }, (table) => ({
+    categoryCodeUnique: uniqueIndex("category_code_unique")
+        .on(table.code)
+        .where(sql`deleted_at IS NULL`),
     userCategoryUnique: uniqueIndex("category_user_name_unique")
         .on(table.userId, table.name)
         .where(sql`deleted_at IS NULL`),
@@ -133,9 +138,14 @@ export const subCategory = sqliteTable("sub_category", {
     id: text("id").primaryKey().$defaultFn(() => uuidv7()),
     categoryId: text("category_id").notNull().references(() => category.id, { onDelete: "cascade" }),
     userId: text("user_id").references(() => user.id, { onDelete: "cascade" }), // null = global default
+    code: text("code").notNull(),
     name: text("name").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
     deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
 }, (table) => ({
+    categorySubCategoryCodeUnique: uniqueIndex("sub_category_category_user_code_unique")
+        .on(table.categoryId, table.userId, table.code)
+        .where(sql`deleted_at IS NULL`),
     categorySubCategoryUnique: uniqueIndex("sub_category_category_user_name_unique")
         .on(table.categoryId, table.userId, table.name)
         .where(sql`deleted_at IS NULL`),

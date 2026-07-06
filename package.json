@@ -14,8 +14,10 @@
 		"db:generate": "drizzle-kit generate",
 		"db:migrate:local": "wrangler d1 migrations apply DB --local",
 		"db:migrate:remote": "wrangler d1 migrations apply DB --remote",
-		"db:seed:local": "wrangler d1 execute DB --local --file=./src/db/seed.sql",
-		"db:seed:remote": "wrangler d1 execute DB --remote --file=./src/db/seed.sql",
+		"db:seed:local": "node ./scripts/seed-catalog.mjs --local --mode seed",
+		"db:seed:remote": "node ./scripts/seed-catalog.mjs --remote --mode seed",
+		"db:reset-seed:local": "node ./scripts/seed-catalog.mjs --local --mode reset-and-seed",
+		"db:reset-seed:remote": "node ./scripts/seed-catalog.mjs --remote --mode reset-and-seed",
 		"db:studio": "drizzle-kit studio",
 		"db:studio:stop": "lsof -ti :4983 | xargs kill -9 || true"
 	},

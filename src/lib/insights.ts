@@ -1,4 +1,5 @@
 import { Category, Cycle, Expense, PaymentMethod } from "./expense-store";
+import { chartColorFromClass } from "./catalog";
 
 export type DayPoint = { day: number; date: string; total: number; byCat: Partial<Record<Category, number>> };
 
@@ -27,7 +28,7 @@ export function buildDailySeries(cycle: Cycle, expenses: Expense[]): DayPoint[] 
         const idx = pts.findIndex((p) => p.date === e.date);
         if (idx < 0) continue;
         pts[idx].total += e.amount;
-        pts[idx].byCat[e.category] = (pts[idx].byCat[e.category] ?? 0) + e.amount;
+        pts[idx].byCat[e.category.code] = (pts[idx].byCat[e.category.code] ?? 0) + e.amount;
     }
     return pts;
 }
@@ -42,7 +43,7 @@ export function cumulative(points: DayPoint[]) {
 
 export function totalsByCategory(expenses: Expense[]) {
     const m = new Map<Category, number>();
-    for (const e of expenses) m.set(e.category, (m.get(e.category) ?? 0) + e.amount);
+    for (const e of expenses) m.set(e.category.code, (m.get(e.category.code) ?? 0) + e.amount);
     return m;
 }
 
@@ -105,15 +106,6 @@ export function splitBalances(expenses: Expense[]) {
     return { perContact: owed, total };
 }
 
-// SVG-safe color references mirroring CATEGORY_META.
-export const CATEGORY_FILL: Record<Category, string> = {
-    food: "var(--pink)",
-    transport: "var(--yellow)",
-    groceries: "var(--teal)",
-    housing: "var(--ink)",
-    utilities: "var(--teal)",
-    subs: "var(--pink)",
-    personal: "var(--pink)",
-    travel: "var(--yellow)",
-    misc: "var(--teal)",
-};
+export function categoryFill(expense: Expense | undefined) {
+    return chartColorFromClass(expense?.category.color ?? "bg-teal");
+}

@@ -1,8 +1,9 @@
 "use client";
 
-import { Category, CATEGORY_META, type Expense } from "@/lib/expense-store";
+import { type Expense } from "@/lib/expense-store";
 import { useMemo } from "react";
-import { totalsByCategory, CATEGORY_FILL } from "@/lib/insights";
+import { totalsByCategory } from "@/lib/insights";
+import { chartColorFromClass } from "@/lib/catalog";
 import { formatMoney } from "@/lib/utils";
 
 type Props = {
@@ -19,6 +20,14 @@ const CategoryDonut = ({ expenses, prevExpenses = [] }: Props) => {
             .sort((a, b) => b.amt - a.amt);
         return { slices, total, prev: prv };
     }, [expenses, prevExpenses]);
+    const categoryMetaByCode = useMemo(
+        () =>
+            expenses.reduce<Record<string, { name: string; color: string }>>((acc, expense) => {
+                acc[expense.category.code] = { name: expense.category.name, color: expense.category.color };
+                return acc;
+            }, {}),
+        [expenses],
+    );
 
     const size = 180;
     const stroke = 36;
@@ -49,7 +58,7 @@ const CategoryDonut = ({ expenses, prevExpenses = [] }: Props) => {
                                             cy={size / 2}
                                             r={r}
                                             fill="none"
-                                            stroke={CATEGORY_FILL[s.cat]}
+                                            stroke={chartColorFromClass(categoryMetaByCode[s.cat]?.color ?? "bg-teal")}
                                             strokeWidth={stroke}
                                             strokeDasharray={`${len} ${c - len}`}
                                             strokeDashoffset={-offset}
@@ -78,10 +87,10 @@ const CategoryDonut = ({ expenses, prevExpenses = [] }: Props) => {
                                     <li key={s.cat} className="flex items-center gap-2 text-sm">
                                         <span
                                             className="inline-block h-3 w-3 brutal-border shrink-0"
-                                            style={{ backgroundColor: CATEGORY_FILL[s.cat] as string }}
+                                            style={{ backgroundColor: chartColorFromClass(categoryMetaByCode[s.cat]?.color ?? "bg-teal") }}
                                         />
                                         <span className="font-mono text-xs uppercase tracking-widest flex-1">
-                                            #{CATEGORY_META[s.cat as Category].label}
+                                            #{categoryMetaByCode[s.cat]?.name ?? s.cat}
                                         </span>
                                         <span className="font-mono text-[10px] text-mute tabular-nums w-8 text-right">{pct}%</span>
                                         <span className="font-mono text-xs font-bold tabular-nums w-20 text-right">

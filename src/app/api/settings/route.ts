@@ -75,15 +75,24 @@ export async function GET() {
                 label: m.label,
                 hint: m.hint,
             })),
-            categories: categoriesList.map((c) => ({
+            categories: categoriesList
+                .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
+                .map((c) => ({
                 id: c.id,
+                code: c.code,
                 name: c.name,
                 color: c.color,
+                sortOrder: c.sortOrder,
             })),
-            subCategories: subCategoriesList.map((sc) => ({
+            subCategories: subCategoriesList
+                .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
+                .map((sc) => ({
                 id: sc.id,
                 categoryId: sc.categoryId,
+                categoryCode: categoriesList.find((category) => category.id === sc.categoryId)?.code || "",
+                code: sc.code,
                 name: sc.name,
+                sortOrder: sc.sortOrder,
             })),
         });
     } catch (error) {

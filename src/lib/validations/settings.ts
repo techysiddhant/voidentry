@@ -33,11 +33,31 @@ export const cycleSchema = z.object({
     path: ["end"],
 });
 
+const splitParticipantSchema = z.object({
+    contactId: z.preprocess(
+        (val) => typeof val === "string" ? val.trim() || null : val,
+        z.string().optional().nullable()
+    ),
+    name: z.preprocess(
+        (val) => typeof val === "string" ? val.trim() || null : val,
+        z.string().max(100).optional().nullable()
+    ),
+    share: z.number().nonnegative(),
+}).refine((participant) => Boolean(participant.contactId || participant.name), {
+    message: "Each split participant must include a contactId or name",
+    path: ["contactId"],
+});
+
+const splitSchema = z.object({
+    mode: z.enum(["equal", "exact"]),
+    participants: z.array(splitParticipantSchema).min(1, "At least one split participant is required"),
+});
+
 export const expenseInputSchema = z.object({
     amount: z.number().positive("Amount must be greater than zero"),
     note: z.string().trim().min(1, "Note is required").max(100),
-    category: z.string().min(1, "Category is required"),
-    subCategory: z.string().trim().max(100).optional().nullable(),
+    categoryCode: z.string().trim().min(1, "Category is required"),
+    subCategoryCode: z.string().trim().max(100).optional().nullable(),
     date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Date must be YYYY-MM-DD"),
     payment: z.object({
         type: z.string().min(1, "Payment type is required"),
@@ -45,11 +65,26 @@ export const expenseInputSchema = z.object({
         methodId: z.string().optional().nullable(),
     }),
     comment: z.string().trim().max(500).optional().nullable(),
-    split: z.object({
-        mode: z.enum(["equal", "exact"]),
-        participants: z.array(z.object({
-            contactId: z.string(),
-            share: z.number().nonnegative(),
-        })),
+    split: splitSchema.optional().nullable(),
+    _newPaymentMethod: z.object({
+        type: z.string().min(1),
+        label: z.string().trim().min(1).max(100),
     }).optional().nullable(),
+    _newSubCategoryName: z.string().trim().max(100).optional().nullable(),
+}).superRefine((data, ctx) => {
+    if (data.split?.mode !== "exact") return;
+
+    const shareTotalCents = data.split.participants.reduce(
+        (sum, participant) => sum + Math.round(participant.share * 100),
+        0,
+    );
+    const amountCents = Math.round(data.amount * 100);
+
+    if (shareTotalCents !== amountCents) {
+        ctx.addIssue({
+            code: z.ZodIssueCode.custom,
+            message: "Exact split shares must total the transaction amount",
+            path: ["split", "participants"],
+        });
+    }
 });

@@ -1,16 +1,23 @@
 "use client";
 import { Category, Cycle, Expense } from "@/lib/expense-store";
-import { buildDailySeries, CATEGORY_FILL } from "@/lib/insights";
+import { buildDailySeries } from "@/lib/insights";
+import { chartColorFromClass } from "@/lib/catalog";
 import { formatMoney } from "@/lib/utils";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
 type Props = { cycle: Cycle; expenses: Expense[] };
-
-const CAT_ORDER: Category[] = ["food", "transport", "groceries", "housing", "subs", "misc"];
 export function DailyBars({ cycle, expenses }: Props) {
     const router = useRouter();
     const [hover, setHover] = useState<number | null>(null);
+    const categoryColorByCode = useMemo(
+        () =>
+            expenses.reduce<Record<string, string>>((acc, expense) => {
+                acc[expense.category.code] = chartColorFromClass(expense.category.color);
+                return acc;
+            }, {}),
+        [expenses],
+    );
 
     const { pts, max } = useMemo(() => {
         const pts = buildDailySeries(cycle, expenses);
@@ -19,6 +26,10 @@ export function DailyBars({ cycle, expenses }: Props) {
     }, [cycle, expenses]);
 
     const total = pts.reduce((s, p) => s + p.total, 0);
+    const categoryOrder = useMemo<Category[]>(
+        () => [...new Set(expenses.map((expense) => expense.category.code))],
+        [expenses],
+    );
 
     return (
         <div className="brutal-border brutal-shadow-sm bg-paper">
@@ -34,7 +45,7 @@ export function DailyBars({ cycle, expenses }: Props) {
                         <div className="flex items-end gap-[2px] h-40">
                             {pts.map((p) => {
                                 const h = (p.total / max) * 100;
-                                const stacked = CAT_ORDER.filter((c) => p.byCat[c]);
+                                const stacked = categoryOrder.filter((c) => p.byCat[c]);
                                 return (
                                     <button
                                         key={p.day}
@@ -60,7 +71,7 @@ export function DailyBars({ cycle, expenses }: Props) {
                                                     <div
                                                         key={cat}
                                                         style={{
-                                                            backgroundColor: CATEGORY_FILL[cat] as string,
+                                                            backgroundColor: categoryColorByCode[cat] ?? chartColorFromClass("bg-teal"),
                                                             height: `${partH}%`,
                                                         }}
                                                         className="border-l border-r border-ink first:border-t-2 last:border-b-2"

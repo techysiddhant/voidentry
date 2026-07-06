@@ -4,15 +4,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useExpenses, formatMoney, formatDateRange, PAYMENT_META, type Expense } from "@/lib/expense-store";
-import { CATEGORY_META } from "@/lib/mock-parse";
 import { ArrowRight, MessageSquare, Pencil, Plus, Trash2, Users, X } from "lucide-react";
 import { ExpenseDialog } from "@/components/entries/expense-dialog";
-import { CATEGORY_FILL, buildDailySeries, cumulative, daysBetween, todayDayIndex, totalsByCategory } from "@/lib/insights";
+import { buildDailySeries, cumulative, daysBetween, todayDayIndex, totalsByCategory } from "@/lib/insights";
+import { chartColorFromClass } from "@/lib/catalog";
 import { clearedSearch, filterEntries, parseSearch, type EntryFilter } from "@/lib/entry-filter";
 import { FilterBar } from "@/components/entries/filter-bar";
 
 export default function EntriesPage() {
-    const { expenses, activeCycle, removeExpense, paymentMethods } = useExpenses();
+    const { expenses, activeCycle, removeExpense, paymentMethods, categoryByCode } = useExpenses();
     const router = useRouter();
     const pathname = usePathname();
     const searchParams = useSearchParams();
@@ -140,8 +140,8 @@ export default function EntriesPage() {
                     <div className="flex flex-wrap items-center gap-1.5 flex-1 min-w-0">
                         {topCats.map(([cat, amt]) => (
                             <span key={cat} className="inline-flex items-center gap-1.5 brutal-border bg-paper px-2 py-1 font-mono text-[10px] uppercase tracking-widest">
-                                <span className="inline-block h-2.5 w-2.5 brutal-border" style={{ backgroundColor: CATEGORY_FILL[cat] as string }} />
-                                #{CATEGORY_META[cat].label}
+                                <span className="inline-block h-2.5 w-2.5 brutal-border" style={{ backgroundColor: chartColorFromClass(categoryByCode[cat]?.color ?? "bg-teal") }} />
+                                #{categoryByCode[cat]?.name ?? cat}
                                 <span className="font-bold tabular-nums normal-case">{formatMoney(amt)}</span>
                             </span>
                         ))}
@@ -193,7 +193,6 @@ export default function EntriesPage() {
                                 </div>
                                 <ul className="divide-y-2 divide-ink/10">
                                     {items.map((e) => {
-                                        const meta = CATEGORY_META[e.category];
                                         const pay = PAYMENT_META[e.payment.type];
                                         const savedMethod = e.payment.methodId ? paymentMethods.find((m) => m.id === e.payment.methodId) : undefined;
                                         const payLabel = savedMethod
@@ -205,11 +204,11 @@ export default function EntriesPage() {
                                                     onClick={() => openEdit(e)}
                                                     className="flex-1 min-w-0 flex items-center gap-3 cursor-pointer"
                                                 >
-                                                    <span className={`brutal-border inline-block h-4 w-4 shrink-0 ${meta.color}`} />
+                                                    <span className={`brutal-border inline-block h-4 w-4 shrink-0 ${e.category.color}`} />
                                                     <div className="flex-1 min-w-0">
                                                         <div className="font-mono text-sm truncate">{e.note}</div>
                                                         <div className="font-mono text-[10px] uppercase tracking-widest text-mute truncate flex items-center gap-1.5 mt-0.5">
-                                                            <span>#{e.subCategory ?? meta.label}</span>
+                                                            <span>#{e.subCategory?.name ?? e.category.name}</span>
                                                             <span>·</span>
                                                             <span>{payLabel}</span>
                                                             {e.split && (

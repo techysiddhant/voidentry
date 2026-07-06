@@ -6,64 +6,28 @@ import { settingsApi } from "./api/settings";
 import { cyclesApi } from "./api/cycles";
 import { entriesApi } from "./api/entries";
 import { getCalendarMonth } from "./utils";
+import {
+    groupSubCategoriesByCategoryCode,
+    mapCategoriesByCode,
+    mapSubCategoriesByCode,
+} from "./catalog";
+import type { CatalogCategory, CatalogSubCategory } from "@/types/catalog";
 
-export type Category = "food" | "transport" | "groceries" | "housing" | "utilities" | "subs" | "personal" | "travel" | "misc";
+export type Category = string;
 
-export const CATEGORY_META: Record<Category, { label: string; color: string }> = {
-    food: { label: "food", color: "bg-pink" },
-    transport: { label: "transport", color: "bg-yellow" },
-    groceries: { label: "groceries", color: "bg-teal" },
-    housing: { label: "housing", color: "bg-ink" },
-    utilities: { label: "utilities", color: "bg-teal" },
-    subs: { label: "subs", color: "bg-pink" },
-    personal: { label: "personal", color: "bg-pink" },
-    travel: { label: "travel", color: "bg-yellow" },
-    misc: { label: "misc", color: "bg-teal" },
-};
+import type {
+    PaymentType,
+    PaymentMethod,
+    Split,
+    SplitMode,
+    SplitParticipant,
+    Expense,
+    ExpenseInput,
+    ExpenseCreateInput,
+    Contact,
+} from "@/types/expense";
 
-export const SUBCATEGORIES: Record<Category, string[]> = {
-    food: ["dining out", "coffee & cafes", "fast food / delivery"],
-    transport: ["public transit", "rideshare & cabs", "fuel & gas", "parking & tolls", "vehicle maintenance"],
-    groceries: ["supermarket", "vegetables", "kirana"],
-    housing: ["rent / mortgage", "household goods & maintenance"],
-    utilities: ["electricity & gas", "water & trash", "internet & wifi", "mobile & cell phone", "insurance"],
-    subs: ["streaming services", "software & cloud subscriptions"],
-    personal: ["gym & fitness", "salon & barbershop", "medical & healthcare", "shopping & clothing", "hobbies & sports"],
-    travel: ["flights & trains", "lodging & hotels", "activities & sightseeing"],
-    misc: ["gifts & donations", "education & books", "cash / ATM", "other / uncategorized"],
-};
-
-const CATEGORY_HINTS: Array<[Category, RegExp]> = [
-    ["food", /\b(dining|lunch|dinner|breakfast|coffee|ramen|pizza|burger|cafe|restaurant|food|eat|brunch|snack|chai|thali|dosa|biryani)\b/i],
-    ["transport", /\b(uber|ola|auto|taxi|cab|bus|train|metro|gas|fuel|petrol|parking|flight|airfare|tram)\b/i],
-    ["groceries", /\b(grocer(y|ies)|supermarket|market|kirana|vegetables|sabzi)\b/i],
-    ["housing", /\b(rent|mortgage|household|maintenance)\b/i],
-    ["utilities", /\b(electric(ity)?|water bill|internet|wifi|utilities|cell|mobile|insurance)\b/i],
-    ["subs", /\b(streaming|spotify|netflix|disney|apple|subscription|membership)\b/i],
-    ["personal", /\b(gym|fitness|salon|barber|haircut|dentist|doctor|medical|medicine|pharmacy|shopping|clothing|clothes|hobby)\b/i],
-    ["travel", /\b(hotel|flight|airfare|lodging|hostel|sightseeing|vacation)\b/i],
-];
-
-export type Parsed = {
-    amount: number;
-    note: string;
-    category: Category;
-    date: string; // ISO yyyy-mm-dd
-};
-
-function todayISO() {
-    const d = new Date();
-    return d.toISOString().slice(0, 10);
-}
-
-function detectDate(text: string): string {
-    if (/\byesterday\b/i.test(text)) {
-        const d = new Date();
-        d.setDate(d.getDate() - 1);
-        return d.toISOString().slice(0, 10);
-    }
-    return todayISO();
-}
+export type { PaymentType, PaymentMethod, Split, SplitMode, SplitParticipant, Expense, ExpenseInput, ExpenseCreateInput, Contact };
 
 export type Cycle = {
     id: string;
@@ -73,14 +37,7 @@ export type Cycle = {
     total?: number;
 };
 
-export type PaymentMethod = {
-    id: string;
-    type: PaymentType;
-    label: string;
-    hint?: string;
-};
-
-export type PaymentType = "cash" | "card" | "upi" | "netbanking" | "wallet";
+export type PaymentMethodInput = Omit<PaymentMethod, "id">;
 
 export const PAYMENT_META: Record<PaymentType, { label: string; short: string }> = {
     cash: { label: "Cash", short: "cash" },
@@ -90,65 +47,12 @@ export const PAYMENT_META: Record<PaymentType, { label: string; short: string }>
     wallet: { label: "Wallet", short: "wallet" },
 };
 
-export type SplitMode = "equal" | "exact";
-
-export type SplitParticipant = { contactId: string; share: number };
-
-export type Split = {
-    mode: SplitMode;
-    participants: SplitParticipant[];
-};
-
-export type Expense = {
-    id: string;
-    amount: number;
-    note: string;
-    category: Category;
-    subCategory?: string;
-    date: string;
-    cycleId: string;
-    payment: { type: PaymentType; cardName?: string; methodId?: string };
-    comment?: string;
-    split?: Split;
-};
-
-export type ExpenseInput = Omit<Expense, "id" | "cycleId">;
-
-export type PaymentMethodInput = Omit<PaymentMethod, "id">;
-
-export function parseMessage(raw: string): Parsed | null {
-    const text = raw.trim();
-    if (!text) return null;
-    const cleaned = text.replace(/₹|\b(rs\.?|inr)\b/gi, " ");
-    const amtMatch = cleaned.match(/(\d+(?:[.,]\d{1,2})?)/);
-    if (!amtMatch) return null;
-    const amount = parseFloat(amtMatch[1].replace(",", "."));
-    if (!isFinite(amount) || amount <= 0) return null;
-
-    let category: Category = "misc";
-    for (const [c, rx] of CATEGORY_HINTS) {
-        if (rx.test(text)) {
-            category = c;
-            break;
-        }
-    }
-
-    const note = text
-        .replace(amtMatch[0], "")
-        .replace(/₹|\b(rs\.?|inr)\b/gi, "")
-        .replace(/[€$£]/g, "")
-        .replace(/\byesterday\b/i, "")
-        .replace(/\s+/g, " ")
-        .trim() || CATEGORY_META[category].label;
-
-    return { amount, note, category, date: detectDate(text) };
-}
-
 export function formatMoney(val: number): string {
     return new Intl.NumberFormat("en-IN", {
         style: "currency",
         currency: "INR",
-        maximumFractionDigits: 0,
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2,
     }).format(val);
 }
 
@@ -214,39 +118,28 @@ export function useExpenses() {
         return settings?.paymentMethods || [];
     }, [settings?.paymentMethods]);
 
-    // 5. Build custom subcategories map dynamically from D1 settings results
-    const customSubs = useMemo(() => {
-        const result: Record<Category, string[]> = {
-            food: [],
-            transport: [],
-            groceries: [],
-            housing: [],
-            utilities: [],
-            subs: [],
-            personal: [],
-            travel: [],
-            misc: [],
-        };
-        if (!settings) return result;
+    const categories = useMemo<CatalogCategory[]>(() => {
+        return [...(settings?.categories || [])].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+    }, [settings?.categories]);
 
-        for (const sc of settings.subCategories) {
-            const cat = settings.categories.find((c) => c.id === sc.categoryId);
-            if (cat && cat.name in result) {
-                const cName = cat.name as Category;
-                const defaultList = SUBCATEGORIES[cName] || [];
-                if (!defaultList.includes(sc.name)) {
-                    result[cName].push(sc.name);
-                }
-            }
-        }
-        return result;
-    }, [settings]);
+    const subCategories = useMemo<CatalogSubCategory[]>(() => {
+        return [...(settings?.subCategories || [])].sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name));
+    }, [settings?.subCategories]);
+
+    const categoryByCode = useMemo(() => mapCategoriesByCode(categories), [categories]);
+    const subCategoryByCode = useMemo(() => mapSubCategoriesByCode(subCategories), [subCategories]);
+    const subCategoriesByCategoryCode = useMemo(
+        () => groupSubCategoriesByCategoryCode(subCategories),
+        [subCategories],
+    );
 
     // Mutations
     const addExpenseMutation = useMutation({
         mutationFn: (input: ExpenseInput) => entriesApi.addEntry(input),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ENTRIES] });
+            // Invalidate settings in case backend auto-created categories/payment methods/subcategories
+            queryClient.invalidateQueries({ queryKey: QUERY_KEYS.SETTINGS });
         },
     });
 
@@ -254,6 +147,7 @@ export function useExpenses() {
         mutationFn: ({ id, input }: { id: string; input: ExpenseInput }) => entriesApi.updateEntry(id, input),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ENTRIES] });
+            queryClient.invalidateQueries({ queryKey: QUERY_KEYS.SETTINGS });
         },
     });
 
@@ -265,14 +159,14 @@ export function useExpenses() {
     });
 
     const addCustomSubMutation = useMutation({
-        mutationFn: (data: { categoryName: string; name: string }) => entriesApi.addCustomSubCategory(data),
+        mutationFn: (data: { categoryCode: string; name: string }) => entriesApi.addCustomSubCategory(data),
         onSuccess: () => {
             queryClient.invalidateQueries({ queryKey: QUERY_KEYS.SETTINGS });
         },
     });
 
     const addExpense = (input: ExpenseInput) => {
-        addExpenseMutation.mutate(input);
+        return addExpenseMutation.mutateAsync(input);
     };
 
     const updateExpense = (id: string, input: ExpenseInput) => {
@@ -283,35 +177,30 @@ export function useExpenses() {
         removeExpenseMutation.mutate(id);
     };
 
-    const addCustomSub = (category: Category, sub: string) => {
-        addCustomSubMutation.mutate({ categoryName: category, name: sub });
+    const addCustomSub = (categoryCode: string, sub: string) => {
+        addCustomSubMutation.mutate({ categoryCode, name: sub });
     };
 
-    const addPaymentMethod = (method: PaymentMethodInput): PaymentMethod => {
-        const tempId = `pm-${Date.now()}`;
-        const newPm: PaymentMethod = {
-            id: tempId,
-            ...method,
-        };
-        settingsApi.addPaymentMethod({
+    const addPaymentMethod = async (method: PaymentMethodInput): Promise<PaymentMethod> => {
+        const savedMethod = await settingsApi.addPaymentMethod({
             type: method.type,
             label: method.label,
             hint: method.hint || undefined,
-        }).then(() => {
-            queryClient.invalidateQueries({ queryKey: QUERY_KEYS.SETTINGS });
-        }).catch(err => {
-            console.error("Failed to save payment method in DB:", err);
         });
-
-        return newPm;
+        await queryClient.invalidateQueries({ queryKey: QUERY_KEYS.SETTINGS });
+        return savedMethod;
     };
 
     return {
         expenses,
         activeCycle,
+        categories,
+        subCategories,
+        categoryByCode,
+        subCategoryByCode,
+        subCategoriesByCategoryCode,
         paymentMethods,
         contacts,
-        customSubs,
         addExpense,
         updateExpense,
         removeExpense,

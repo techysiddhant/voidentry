@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { Filter, Search, X } from "lucide-react";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { CATEGORY_META } from "@/lib/mock-parse";
 import { PAYMENT_META, formatMoney, useExpenses, type Expense } from "@/lib/expense-store";
 import type { EntryFilter } from "@/lib/entry-filter";
 import { activeFilterCount } from "@/lib/entry-filter";
@@ -24,7 +23,7 @@ export function FilterBar({
     totalCount: number;
     filteredTotal: number;
 }) {
-    const { paymentMethods } = useExpenses();
+    const { paymentMethods, categoryByCode, subCategoryByCode } = useExpenses();
     const [q, setQ] = useState(filter.q ?? "");
     const [open, setOpen] = useState(false);
 
@@ -44,7 +43,7 @@ export function FilterBar({
     }, [filter.q]);
 
     const count = activeFilterCount(filter);
-    const chips = buildChips(filter, paymentMethods);
+    const chips = buildChips(filter, paymentMethods, categoryByCode, subCategoryByCode);
 
     return (
         <div className="mt-4 brutal-border bg-paper">
@@ -113,17 +112,22 @@ export function FilterBar({
 
 type Chip = { key: string; label: string; remove: (f: EntryFilter) => EntryFilter };
 
-function buildChips(f: EntryFilter, pms: { id: string; label: string }[]): Chip[] {
+function buildChips(
+    f: EntryFilter,
+    pms: { id: string; label: string }[],
+    categoryByCode: Record<string, { name: string }>,
+    subCategoryByCode: Record<string, { name: string }>,
+): Chip[] {
     const chips: Chip[] = [];
     if (f.q) chips.push({ key: "q", label: `“${f.q}”`, remove: (x) => ({ ...x, q: undefined }) });
     for (const c of f.cats ?? []) chips.push({
         key: `c-${c}`,
-        label: `#${CATEGORY_META[c].label}`,
+        label: `#${categoryByCode[c]?.name ?? c}`,
         remove: (x) => ({ ...x, cats: (x.cats ?? []).filter((y) => y !== c).length ? (x.cats ?? []).filter((y) => y !== c) : undefined }),
     });
     for (const s of f.subs ?? []) chips.push({
         key: `s-${s}`,
-        label: s,
+        label: subCategoryByCode[s]?.name ?? s,
         remove: (x) => ({ ...x, subs: (x.subs ?? []).filter((y) => y !== s).length ? (x.subs ?? []).filter((y) => y !== s) : undefined }),
     });
     for (const id of f.pms ?? []) {

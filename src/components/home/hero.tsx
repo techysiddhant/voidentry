@@ -62,11 +62,11 @@ function ChatMockup() {
                 </div>
                 <div className="p-4 space-y-4">
                     <UserBubble text="280 flat white" />
-                    <DraftCard note="flat white" cat="food" sub="coffee" pay="UPI" amt="₹280" date="Today" />
+                    <DraftCard note="flat white" cat="food" sub="coffee & tea" pay="UPI" amt="₹280" date="Today" />
                     <UserBubble text="uber 240 yesterday" />
-                    <DraftCard note="uber" cat="transport" sub="uber/ola" pay="UPI" amt="₹240" date="Yesterday" accent="yellow" />
+                    <DraftCard note="uber" cat="transport" sub="ride share & taxis" pay="UPI" amt="₹240" date="Yesterday" accent="yellow" />
                     <UserBubble text="ramen w/ sam 1840 split" />
-                    <DraftCard note="ramen w/ sam" cat="food" sub="dining out" pay="UPI" amt="₹1,840" date="Today" accent="teal" split="2" />
+                    <DraftCard note="ramen w/ sam" cat="food" sub="restaurants & dining" pay="UPI" amt="₹1,840" date="Today" accent="teal" split="2" />
                 </div>
                 <div className="border-t-2 border-ink px-4 py-3">
                     <div className="brutal-border bg-paper flex items-center px-3 py-2">

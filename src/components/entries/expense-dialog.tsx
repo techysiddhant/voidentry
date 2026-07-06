@@ -3,6 +3,7 @@ import { X, Plus, Users, Trash2 } from "lucide-react";
 import {
     type Expense,
     type ExpenseInput,
+    type ExpenseCreateInput,
     type PaymentType,
     type Split,
     type SplitMode,
@@ -10,16 +11,18 @@ import {
     formatMoney,
     useExpenses,
 } from "@/lib/expense-store";
-import { CATEGORY_META, SUBCATEGORIES, type Category } from "@/lib/mock-parse";
+import type { Category } from "@/lib/expense-store";
 
 type Props = {
     open: boolean;
     onClose: () => void;
     editing?: Expense | null;
-    initial?: Partial<ExpenseInput> | null;
+    initial?: (Partial<ExpenseInput> & {
+        _newPaymentMethod?: { type: PaymentType; label: string } | null;
+        _newSubCategoryName?: string | null;
+    }) | null;
 };
 
-const CATS: Category[] = ["food", "transport", "housing", "utilities", "personal", "travel", "misc"];
 const PAY: PaymentType[] = ["cash", "card", "upi", "netbanking", "wallet"];
 
 function todayISO() {
@@ -27,30 +30,49 @@ function todayISO() {
 }
 
 export function ExpenseDialog({ open, onClose, editing, initial }: Props) {
-    const { addExpense, updateExpense, removeExpense, contacts, customSubs, addCustomSub, paymentMethods, addPaymentMethod } = useExpenses();
+    const {
+        addExpense,
+        updateExpense,
+        removeExpense,
+        contacts,
+        paymentMethods,
+        categories,
+        categoryByCode,
+        subCategoryByCode,
+        subCategoriesByCategoryCode,
+    } = useExpenses();
 
     const seed: ExpenseInput = useMemo(() => {
         if (editing) {
             const { id: _id, cycleId: _c, ...rest } = editing;
             void _id; void _c;
-            return rest;
+            return {
+                amount: rest.amount,
+                note: rest.note,
+                categoryCode: rest.category.code,
+                subCategoryCode: rest.subCategory?.code,
+                date: rest.date,
+                payment: rest.payment,
+                comment: rest.comment,
+                split: rest.split,
+            };
         }
         return {
             amount: initial?.amount ?? 0,
             note: initial?.note ?? "",
-            category: initial?.category ?? "misc",
-            subCategory: initial?.subCategory,
+            categoryCode: initial?.categoryCode ?? categories[0]?.code ?? "misc",
+            subCategoryCode: initial?.subCategoryCode,
             date: initial?.date ?? todayISO(),
             payment: initial?.payment ?? { type: "upi" },
             comment: initial?.comment,
             split: initial?.split,
         };
-    }, [editing, initial]);
+    }, [editing, initial, categories]);
 
     const [amount, setAmount] = useState<string>(seed.amount ? String(seed.amount) : "");
     const [note, setNote] = useState(seed.note);
-    const [category, setCategory] = useState<Category>(seed.category);
-    const [subCategory, setSubCategory] = useState<string>(seed.subCategory ?? "");
+    const [categoryCode, setCategoryCode] = useState<Category>(seed.categoryCode);
+    const [subCategoryCode, setSubCategoryCode] = useState<string | undefined>(seed.subCategoryCode);
     const [date, setDate] = useState(seed.date);
     const [payType, setPayType] = useState<PaymentType>(seed.payment.type);
     const [cardName, setCardName] = useState(seed.payment.cardName ?? "");
@@ -59,6 +81,7 @@ export function ExpenseDialog({ open, onClose, editing, initial }: Props) {
     const [showNewMethod, setShowNewMethod] = useState(false);
     const [newMethodLabel, setNewMethodLabel] = useState("");
     const [newMethodHint, setNewMethodHint] = useState("");
+    const [newMethodData, setNewMethodData] = useState<{ type: PaymentType; label: string; hint?: string } | null>(null);
     const [splitOn, setSplitOn] = useState<boolean>(!!seed.split);
     const [splitMode, setSplitMode] = useState<SplitMode>(seed.split?.mode ?? "equal");
     const [splitIds, setSplitIds] = useState<string[]>(seed.split?.participants.map((p) => p.contactId) ?? ["you"]);
@@ -69,18 +92,44 @@ export function ExpenseDialog({ open, onClose, editing, initial }: Props) {
     });
     const [showSubInput, setShowSubInput] = useState(false);
     const [newSub, setNewSub] = useState("");
+    const [newSubCategoryName, setNewSubCategoryName] = useState(initial?._newSubCategoryName ?? "");
 
     // Reset state whenever dialog is reopened with different seed
     useEffect(() => {
         if (!open) return;
         setAmount(seed.amount ? String(seed.amount) : "");
         setNote(seed.note);
-        setCategory(seed.category);
-        setSubCategory(seed.subCategory ?? "");
+        setCategoryCode(seed.categoryCode);
+        setSubCategoryCode(seed.subCategoryCode);
         setDate(seed.date);
-        setPayType(seed.payment.type);
+
+        let initialMethodId = seed.payment.methodId;
+        let initialPayType = seed.payment.type;
+        let initialNewMethod: { type: PaymentType; label: string; hint?: string } | null = null;
+
+        if (initial?._newPaymentMethod) {
+            const exists = paymentMethods.find(
+                (pm) =>
+                    pm.type === initial._newPaymentMethod!.type &&
+                    pm.label.toLowerCase() === initial._newPaymentMethod!.label.toLowerCase(),
+            );
+            if (exists) {
+                initialMethodId = exists.id;
+                initialPayType = exists.type as PaymentType;
+            } else {
+                initialMethodId = undefined;
+                initialPayType = initial._newPaymentMethod.type;
+                initialNewMethod = {
+                    type: initial._newPaymentMethod.type,
+                    label: initial._newPaymentMethod.label,
+                };
+            }
+        }
+
+        setPayType(initialPayType);
         setCardName(seed.payment.cardName ?? "");
-        setMethodId(seed.payment.methodId);
+        setMethodId(initialMethodId);
+        setNewMethodData(initialNewMethod);
         setShowNewMethod(false);
         setNewMethodLabel("");
         setNewMethodHint("");
@@ -93,13 +142,25 @@ export function ExpenseDialog({ open, onClose, editing, initial }: Props) {
         setExactShares(r);
         setShowSubInput(false);
         setNewSub("");
-    }, [open, seed]);
+        setNewSubCategoryName(initial?._newSubCategoryName ?? "");
+    }, [open, seed, initial, paymentMethods]);
 
     const amt = parseFloat(amount) || 0;
     const subs = useMemo(() => {
-        const merged = [...SUBCATEGORIES[category], ...customSubs[category]];
-        return Array.from(new Set(merged));
-    }, [category, customSubs]);
+        const base = subCategoriesByCategoryCode[categoryCode] || [];
+        if (!newSubCategoryName) return base;
+        return [
+            ...base,
+            {
+                id: `new-${newSubCategoryName}`,
+                categoryId: "",
+                categoryCode,
+                code: "",
+                name: newSubCategoryName,
+                sortOrder: 999,
+            },
+        ];
+    }, [categoryCode, newSubCategoryName, subCategoriesByCategoryCode]);
 
     // Build split + validation
     const equalShare = splitIds.length > 0 ? amt / splitIds.length : 0;
@@ -108,7 +169,7 @@ export function ExpenseDialog({ open, onClose, editing, initial }: Props) {
         ? splitIds.length >= 2 && amt > 0
         : splitIds.length >= 2 && amt > 0 && Math.abs(exactSum - amt) < 0.01;
 
-    const canSave = amt > 0 && !!category && !!date && splitValid;
+    const canSave = amt > 0 && !!categoryCode && !!date && splitValid;
 
     const toggleId = (id: string) => {
         setSplitIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
@@ -124,11 +185,11 @@ export function ExpenseDialog({ open, onClose, editing, initial }: Props) {
             split = { mode: splitMode, participants };
         }
 
-        const input: ExpenseInput = {
+        const input: ExpenseCreateInput = {
             amount: amt,
-            note: note.trim() || CATEGORY_META[category].label,
-            category,
-            subCategory: subCategory.trim() || undefined,
+            note: note.trim() || categoryByCode[categoryCode]?.name || "Expense",
+            categoryCode,
+            subCategoryCode,
             date,
             payment: {
                 type: payType,
@@ -137,6 +198,8 @@ export function ExpenseDialog({ open, onClose, editing, initial }: Props) {
             },
             comment: comment.trim() || undefined,
             split,
+            _newPaymentMethod: !methodId && newMethodData && newMethodData.type === payType ? newMethodData : undefined,
+            _newSubCategoryName: !subCategoryCode && newSubCategoryName ? newSubCategoryName : undefined,
         };
 
         if (editing) updateExpense(editing.id, input);
@@ -197,17 +260,21 @@ export function ExpenseDialog({ open, onClose, editing, initial }: Props) {
                     <div>
                         <Label>Category</Label>
                         <div className="mt-1.5 flex flex-wrap gap-1.5">
-                            {CATS.map((c) => (
+                            {categories.map((category) => (
                                 <button
-                                    key={c}
+                                    key={category.code}
                                     type="button"
-                                    onClick={() => { setCategory(c); setSubCategory(""); }}
+                                    onClick={() => {
+                                        setCategoryCode(category.code);
+                                        setSubCategoryCode(undefined);
+                                        setNewSubCategoryName("");
+                                    }}
                                     className={[
                                         "brutal-border brutal-press px-3 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest",
-                                        category === c ? "bg-ink text-paper" : "bg-paper",
+                                        categoryCode === category.code ? "bg-ink text-paper" : "bg-paper",
                                     ].join(" ")}
                                 >
-                                    #{c}
+                                    #{category.name}
                                 </button>
                             ))}
                         </div>
@@ -217,17 +284,33 @@ export function ExpenseDialog({ open, onClose, editing, initial }: Props) {
                     <div>
                         <Label>Sub-category</Label>
                         <div className="mt-1.5 flex flex-wrap gap-1.5">
-                            {subs.map((s) => (
+                            {subs.map((subCategory) => (
                                 <button
-                                    key={s}
+                                    key={subCategory.id || `${subCategory.categoryCode}-${subCategory.name}`}
                                     type="button"
-                                    onClick={() => setSubCategory(s === subCategory ? "" : s)}
+                                    onClick={() => {
+                                        const isSelected = subCategory.code
+                                            ? subCategoryCode === subCategory.code
+                                            : newSubCategoryName === subCategory.name;
+                                        if (isSelected) {
+                                            setSubCategoryCode(undefined);
+                                            setNewSubCategoryName("");
+                                        } else if (subCategory.code) {
+                                            setSubCategoryCode(subCategory.code);
+                                            setNewSubCategoryName("");
+                                        } else {
+                                            setSubCategoryCode(undefined);
+                                            setNewSubCategoryName(subCategory.name);
+                                        }
+                                    }}
                                     className={[
                                         "brutal-border brutal-press px-2.5 py-1 font-mono text-[11px]",
-                                        subCategory === s ? "bg-yellow" : "bg-paper",
+                                        (subCategory.code ? subCategoryCode === subCategory.code : newSubCategoryName === subCategory.name)
+                                            ? "bg-yellow"
+                                            : "bg-paper",
                                     ].join(" ")}
                                 >
-                                    {s}
+                                    {subCategory.name}
                                 </button>
                             ))}
                             {!showSubInput ? (
@@ -248,7 +331,10 @@ export function ExpenseDialog({ open, onClose, editing, initial }: Props) {
                                             if (e.key === "Enter") {
                                                 e.preventDefault();
                                                 const n = newSub.trim();
-                                                if (n) { addCustomSub(category, n); setSubCategory(n); }
+                                                if (n) {
+                                                    setSubCategoryCode(undefined);
+                                                    setNewSubCategoryName(n);
+                                                }
                                                 setNewSub(""); setShowSubInput(false);
                                             } else if (e.key === "Escape") {
                                                 setNewSub(""); setShowSubInput(false);
@@ -300,6 +386,9 @@ export function ExpenseDialog({ open, onClose, editing, initial }: Props) {
                         {/* Saved methods of selected type */}
                         {(() => {
                             const methodsForType = paymentMethods.filter((m) => m.type === payType);
+                            const hasNewLocal = newMethodData && newMethodData.type === payType;
+                            const isNewLocalSelected = hasNewLocal && !methodId;
+
                             return (
                                 <div className="mt-2 flex flex-wrap gap-1.5">
                                     {methodsForType.map((m) => {
@@ -326,6 +415,28 @@ export function ExpenseDialog({ open, onClose, editing, initial }: Props) {
                                             </button>
                                         );
                                     })}
+
+                                    {hasNewLocal && (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                if (isNewLocalSelected) {
+                                                    setMethodId(undefined);
+                                                    setNewMethodData(null);
+                                                } else {
+                                                    setMethodId(undefined);
+                                                }
+                                            }}
+                                            className={[
+                                                "brutal-border brutal-press px-2.5 py-1 font-mono text-[11px] inline-flex items-center gap-1.5",
+                                                isNewLocalSelected ? "bg-yellow" : "bg-paper",
+                                            ].join(" ")}
+                                        >
+                                            <span>{newMethodData.label}</span>
+                                            <span className="text-mute">new</span>
+                                        </button>
+                                    )}
+
                                     {!showNewMethod ? (
                                         <button
                                             type="button"
@@ -355,9 +466,9 @@ export function ExpenseDialog({ open, onClose, editing, initial }: Props) {
                                                     onClick={() => {
                                                         const label = newMethodLabel.trim();
                                                         if (!label) return;
-                                                        const created = addPaymentMethod({ type: payType, label, hint: newMethodHint.trim() || undefined });
-                                                        setMethodId(created.id);
-                                                        if (payType === "card") setCardName(created.label);
+                                                        setNewMethodData({ type: payType, label, hint: newMethodHint.trim() || undefined });
+                                                        setMethodId(undefined);
+                                                        if (payType === "card") setCardName(label);
                                                         setNewMethodLabel("");
                                                         setNewMethodHint("");
                                                         setShowNewMethod(false);

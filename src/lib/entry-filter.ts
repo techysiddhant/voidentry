@@ -81,17 +81,17 @@ export function filterEntries(expenses: Expense[], filter: EntryFilter, activeCy
         if (filter.q) {
             const query = filter.q.toLowerCase();
             const noteMatch = e.note.toLowerCase().includes(query);
-            const subMatch = e.subCategory?.toLowerCase().includes(query) ?? false;
+            const subMatch = e.subCategory?.name.toLowerCase().includes(query) ?? false;
             const commentMatch = e.comment?.toLowerCase().includes(query) ?? false;
             if (!noteMatch && !subMatch && !commentMatch) return false;
         }
 
         if (filter.cats?.length) {
-            if (!filter.cats.includes(e.category)) return false;
+            if (!filter.cats.includes(e.category.code)) return false;
         }
 
         if (filter.subs?.length) {
-            if (!e.subCategory || !filter.subs.includes(e.subCategory.toLowerCase())) return false;
+            if (!e.subCategory || !filter.subs.includes(e.subCategory.code)) return false;
         }
 
         if (filter.pms?.length) {

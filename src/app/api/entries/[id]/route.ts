@@ -5,7 +5,7 @@ import { getDb } from "@/db/client";
 import { expense, expenseSplitParticipant, category, subCategory, paymentMethod } from "@/db/schema";
 import { expenseInputSchema } from "@/lib/validations/settings";
 import { and, eq, isNull, or } from "drizzle-orm";
-import { v7 as uuidv7 } from "uuid";
+import { slugifyCatalogCode } from "@/lib/catalog";
 
 export async function PUT(
     request: Request,
@@ -49,24 +49,48 @@ export async function PUT(
         // 2. Resolve Category ID (matches global or user custom name)
         const cat = await db.query.category.findFirst({
             where: and(
-                eq(category.name, input.category),
+                eq(category.code, input.categoryCode),
                 or(isNull(category.userId), eq(category.userId, userId)),
                 isNull(category.deletedAt)
             ),
         });
 
         if (!cat) {
-            return NextResponse.json({ error: `Category '${input.category}' not found` }, { status: 404 });
+            return NextResponse.json({ error: `Category '${input.categoryCode}' not found` }, { status: 404 });
         }
 
         // 3. Resolve Subcategory ID (if subCategory name is specified)
         let subCatId: string | null = null;
-        if (input.subCategory) {
-            const subName = input.subCategory.toLowerCase();
+        let resolvedSubCategory:
+            | {
+                  id: string;
+                  categoryId: string;
+                  code: string;
+                  name: string;
+                  sortOrder: number;
+              }
+            | undefined;
+        if (input.subCategoryCode) {
+            const sub = await db.query.subCategory.findFirst({
+                where: and(
+                    eq(subCategory.categoryId, cat.id),
+                    eq(subCategory.code, input.subCategoryCode),
+                    or(isNull(subCategory.userId), eq(subCategory.userId, userId)),
+                    isNull(subCategory.deletedAt)
+                ),
+            });
+
+            if (!sub) {
+                return NextResponse.json({ error: `Subcategory '${input.subCategoryCode}' not found` }, { status: 404 });
+            }
+            subCatId = sub.id;
+            resolvedSubCategory = sub;
+        } else if (input._newSubCategoryName) {
+            const subCode = slugifyCatalogCode(input._newSubCategoryName);
             let sub = await db.query.subCategory.findFirst({
                 where: and(
                     eq(subCategory.categoryId, cat.id),
-                    eq(subCategory.name, subName),
+                    eq(subCategory.code, subCode),
                     or(isNull(subCategory.userId), eq(subCategory.userId, userId)),
                     isNull(subCategory.deletedAt)
                 ),
@@ -78,12 +102,15 @@ export async function PUT(
                     .values({
                         categoryId: cat.id,
                         userId,
-                        name: subName,
+                        code: subCode,
+                        name: input._newSubCategoryName,
+                        sortOrder: 999,
                     })
                     .returning();
                 sub = newSub;
             }
             subCatId = sub.id;
+            resolvedSubCategory = sub;
         }
 
         // 4. Verify Payment Method (if methodId is specified)
@@ -141,8 +168,23 @@ export async function PUT(
             id,
             amount: input.amount,
             note: input.note,
-            category: input.category,
-            subCategory: input.subCategory || undefined,
+            category: {
+                id: cat.id,
+                code: cat.code,
+                name: cat.name,
+                color: cat.color,
+                sortOrder: cat.sortOrder,
+            },
+            subCategory: resolvedSubCategory
+                ? {
+                      id: resolvedSubCategory.id,
+                      categoryId: resolvedSubCategory.categoryId,
+                      categoryCode: cat.code,
+                      code: resolvedSubCategory.code,
+                      name: resolvedSubCategory.name,
+                      sortOrder: resolvedSubCategory.sortOrder,
+                  }
+                : undefined,
             date: input.date,
             cycleId: existing.cycleId,
             payment: input.payment,

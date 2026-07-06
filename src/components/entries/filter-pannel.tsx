@@ -1,11 +1,8 @@
 import { useMemo } from "react";
 import { X } from "lucide-react";
-import { CATEGORY_META, SUBCATEGORIES, type Category } from "@/lib/mock-parse";
 import { PAYMENT_META, useExpenses, type Expense, type PaymentType } from "@/lib/expense-store";
 import { activeFilterCount, type EntryFilter } from "@/lib/entry-filter";
 import { AmountHistogram } from "./amount-histogram";
-
-const CATS: Category[] = ["food", "transport", "housing", "utilities", "personal", "travel", "misc"];
 const PTS: PaymentType[] = ["cash", "card", "upi", "netbanking", "wallet"];
 
 function toggle<T>(arr: T[] | undefined, v: T): T[] | undefined {
@@ -29,16 +26,26 @@ export function FilterPanel({
     scopeExpenses: Expense[];
     onClose: () => void;
 }) {
-    const { paymentMethods, activeCycle } = useExpenses();
+    const { paymentMethods, activeCycle, categories, subCategoriesByCategoryCode } = useExpenses();
     const count = activeFilterCount(filter);
 
     const availableSubs = useMemo(() => {
-        const cats = filter.cats?.length ? filter.cats : CATS;
-        const set = new Set<string>();
-        for (const c of cats) for (const s of SUBCATEGORIES[c]) set.add(s);
-        for (const e of scopeExpenses) if (e.subCategory && cats.includes(e.category)) set.add(e.subCategory);
-        return [...set].sort();
-    }, [filter.cats, scopeExpenses]);
+        const catCodes = filter.cats?.length ? filter.cats : categories.map((category) => category.code);
+        const seen = new Map<string, string>();
+        for (const categoryCode of catCodes) {
+            for (const subCategory of subCategoriesByCategoryCode[categoryCode] || []) {
+                seen.set(subCategory.code, subCategory.name);
+            }
+        }
+        for (const expense of scopeExpenses) {
+            if (expense.subCategory && catCodes.includes(expense.category.code)) {
+                seen.set(expense.subCategory.code, expense.subCategory.name);
+            }
+        }
+        return [...seen.entries()]
+            .map(([code, name]) => ({ code, name }))
+            .sort((a, b) => a.name.localeCompare(b.name));
+    }, [categories, filter.cats, scopeExpenses, subCategoriesByCategoryCode]);
 
     const setPreset = (preset: "cycle" | "7d" | "30d" | "all") => {
         if (preset === "cycle") {
@@ -109,11 +116,11 @@ export function FilterPanel({
 
                 <Section title="category">
                     <div className="flex flex-wrap gap-1.5">
-                        {CATS.map((c) => {
-                            const on = filter.cats?.includes(c);
+                        {categories.map((category) => {
+                            const on = filter.cats?.includes(category.code);
                             return (
-                                <Chip key={c} on={!!on} onClick={() => setFilter({ ...filter, cats: toggle(filter.cats, c) })}>
-                                    #{CATEGORY_META[c].label}
+                                <Chip key={category.code} on={!!on} onClick={() => setFilter({ ...filter, cats: toggle(filter.cats, category.code) })}>
+                                    #{category.name}
                                 </Chip>
                             );
                         })}
@@ -125,11 +132,11 @@ export function FilterPanel({
                         <Empty>no sub-categories</Empty>
                     ) : (
                         <div className="flex flex-wrap gap-1.5">
-                            {availableSubs.map((s) => {
-                                const on = filter.subs?.includes(s.toLowerCase());
+                            {availableSubs.map((subCategory) => {
+                                const on = filter.subs?.includes(subCategory.code);
                                 return (
-                                    <Chip key={s} on={!!on} onClick={() => setFilter({ ...filter, subs: toggle(filter.subs, s.toLowerCase()) })}>
-                                        {s}
+                                    <Chip key={subCategory.code} on={!!on} onClick={() => setFilter({ ...filter, subs: toggle(filter.subs, subCategory.code) })}>
+                                        {subCategory.name}
                                     </Chip>
                                 );
                             })}
