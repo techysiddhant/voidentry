@@ -35,6 +35,15 @@
 	"observability": {
 		"enabled": true
 	},
+	"d1_databases": [
+		{
+			"binding": "DB",
+			"database_name": "voidentry",
+			"database_id": "9cecb7a8-0ba9-4ddf-9a35-1605e621c79b",
+			"migrations_dir": "migrations",
+			"migrations_pattern": "migrations/*/migration.sql"
+		}
+	],
 	"upload_source_maps": true
 	/**
 	 * Smart Placement
