@@ -1,5 +1,5 @@
 {
-	"name": "ledger",
+	"name": "voidentry",
 	"version": "0.1.0",
 	"private": true,
 	"scripts": {
@@ -10,58 +10,31 @@
 		"deploy": "opennextjs-cloudflare build && opennextjs-cloudflare deploy",
 		"upload": "opennextjs-cloudflare build && opennextjs-cloudflare upload",
 		"preview": "opennextjs-cloudflare build && opennextjs-cloudflare preview",
-		"cf-typegen": "wrangler types --env-interface CloudflareEnv ./cloudflare-env.d.ts",
-		"db:generate": "drizzle-kit generate",
-		"db:migrate:local": "wrangler d1 migrations apply DB --local",
-		"db:migrate:remote": "wrangler d1 migrations apply DB --remote",
-		"db:seed:local": "node ./scripts/seed-catalog.mjs --local --mode seed",
-		"db:seed:remote": "node ./scripts/seed-catalog.mjs --remote --mode seed",
-		"db:reset-seed:local": "node ./scripts/seed-catalog.mjs --local --mode reset-and-seed",
-		"db:reset-seed:remote": "node ./scripts/seed-catalog.mjs --remote --mode reset-and-seed",
-		"db:studio": "drizzle-kit studio",
-		"db:studio:stop": "lsof -ti :4983 | xargs kill -9 || true"
+		"cf-typegen": "wrangler types --env-interface CloudflareEnv ./cloudflare-env.d.ts"
 	},
 	"dependencies": {
-		"@better-auth/drizzle-adapter": "^1.6.22",
+		"@base-ui/react": "^1.6.0",
 		"@opennextjs/cloudflare": "^1.19.9",
-		"@sentry/nextjs": "^10",
-		"@tanstack/react-devtools": "^0.10.8",
-		"@tanstack/react-form": "^1.33.0",
-		"@tanstack/react-form-devtools": "^0.2.29",
-		"@tanstack/react-form-nextjs": "^1.33.0",
-		"@tanstack/react-query": "^5.101.1",
-		"axios": "^1.18.1",
-		"better-auth": "^1.6.22",
+		"@phosphor-icons/react": "^2.1.10",
 		"class-variance-authority": "^0.7.1",
 		"clsx": "^2.1.1",
-		"drizzle-orm": "^0.45.2",
-		"lucide-react": "^1.21.0",
 		"next": "16.2.6",
-		"next-themes": "^0.4.6",
-		"radix-ui": "^1.6.0",
 		"react": "^19.1.7",
 		"react-dom": "^19.1.7",
-		"shadcn": "^4.11.0",
-		"sonner": "^2.0.7",
+		"shadcn": "^4.13.0",
 		"tailwind-merge": "^3.6.0",
-		"tw-animate-css": "^1.4.0",
-		"uuid": "^14.0.1",
-		"zod": "^4.4.3",
-		"zustand": "^5.0.14"
+		"tw-animate-css": "^1.4.0"
 	},
 	"devDependencies": {
 		"@eslint/eslintrc": "^3",
-		"@libsql/client": "^0.17.4",
 		"@tailwindcss/postcss": "^4",
-		"@types/node": "^26.0.0",
+		"@types/node": "^26.1.1",
 		"@types/react": "^19.1.7",
 		"@types/react-dom": "^19.1.7",
-		"@types/uuid": "^11.0.0",
-		"drizzle-kit": "^0.31.10",
 		"eslint": "^9",
 		"eslint-config-next": "16.2.6",
 		"tailwindcss": "^4",
 		"typescript": "^5.7.4",
-		"wrangler": "^4.103.0"
+		"wrangler": "^4.110.0"
 	}
 }
