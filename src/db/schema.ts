@@ -76,3 +76,100 @@ export const schemaRelations = defineRelations({ user, consentAuditLogs }, (r) =
         }),
     },
 }));
+
+export const paymentMethodType = sqliteTable("payment_method_type", {
+    id: text("id").primaryKey().$defaultFn(() => uuidv7()),
+    code: text("code").notNull().unique(),
+    name: text("name").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).$onUpdateFn(() => new Date()).notNull(),
+});
+
+export const userPreferences = sqliteTable("user_preferences", {
+    id: text("id").primaryKey().$defaultFn(() => uuidv7()),
+    userId: text("user_id").notNull().unique().references(() => user.id, { onDelete: "cascade" }),
+    currency: text("currency").notNull().default("INR"),
+    defaultCalendar: integer("default_calendar", { mode: "boolean" }).notNull().default(false),
+    activeCycleId: text("active_cycle_id"), // Remove simple reference to enforce composite foreign key below
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).$onUpdateFn(() => new Date()).notNull(),
+}, (table) => ({
+    userPreferencesCycleFk: foreignKey({
+        columns: [table.userId, table.activeCycleId],
+        foreignColumns: [cycle.userId, cycle.id],
+    }).onDelete("set null"),
+}));
+
+export const contact = sqliteTable("contact", {
+    id: text("id").primaryKey().$defaultFn(() => uuidv7()),
+    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).$onUpdateFn(() => new Date()).notNull(),
+    deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+}, (table) => ({
+    userContactUnique: uniqueIndex("contact_user_name_unique")
+        .on(table.userId, table.name)
+        .where(sql`deleted_at IS NULL`),
+}));
+
+export const paymentMethod = sqliteTable("payment_method", {
+    id: text("id").primaryKey().$defaultFn(() => uuidv7()),
+    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    typeCode: text("type_code").notNull().references(() => paymentMethodType.code),
+    label: text("label").notNull(),
+    hint: text("hint"),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).$onUpdateFn(() => new Date()).notNull(),
+    deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+});
+
+export const category = sqliteTable("category", {
+    id: text("id").primaryKey().$defaultFn(() => uuidv7()),
+    userId: text("user_id").references(() => user.id, { onDelete: "cascade" }), // null = global default
+    code: text("code").notNull(),
+    name: text("name").notNull(),
+    color: text("color").notNull().default("bg-teal"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+}, (table) => ({
+    categoryCodeUnique: uniqueIndex("category_code_unique")
+        .on(table.code)
+        .where(sql`deleted_at IS NULL`),
+    userCategoryUnique: uniqueIndex("category_user_name_unique")
+        .on(table.userId, table.name)
+        .where(sql`deleted_at IS NULL`),
+}));
+
+export const subCategory = sqliteTable("sub_category", {
+    id: text("id").primaryKey().$defaultFn(() => uuidv7()),
+    categoryId: text("category_id").notNull().references(() => category.id, { onDelete: "cascade" }),
+    userId: text("user_id").references(() => user.id, { onDelete: "cascade" }), // null = global default
+    code: text("code").notNull(),
+    name: text("name").notNull(),
+    sortOrder: integer("sort_order").notNull().default(0),
+    deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+}, (table) => ({
+    categorySubCategoryCodeUnique: uniqueIndex("sub_category_category_user_code_unique")
+        .on(table.categoryId, table.userId, table.code)
+        .where(sql`deleted_at IS NULL`),
+    categorySubCategoryUnique: uniqueIndex("sub_category_category_user_name_unique")
+        .on(table.categoryId, table.userId, table.name)
+        .where(sql`deleted_at IS NULL`),
+}));
+
+export const cycle = sqliteTable("cycle", {
+    id: text("id").primaryKey().$defaultFn(() => uuidv7()),
+    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    start: text("start").notNull(),
+    end: text("end").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).$onUpdateFn(() => new Date()).notNull(),
+    deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+}, (table) => ({
+    userCycleUnique: uniqueIndex("cycle_user_id_id_unique").on(table.userId, table.id),
+    userCycleLabelUnique: uniqueIndex("cycle_user_label_unique")
+        .on(table.userId, table.label)
+        .where(sql`deleted_at IS NULL`),
+}));
