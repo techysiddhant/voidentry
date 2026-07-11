@@ -14,7 +14,7 @@
 		"db:generate": "drizzle-kit generate",
 		"db:migrate:local": "wrangler d1 migrations apply DB --local",
 		"db:migrate:remote": "wrangler d1 migrations apply DB --remote",
-		"db:studio": "drizzle-kit studio",
+		"db:studio": "bun x --bun drizzle-kit studio",
 		"db:studio:stop": "lsof -ti :4983 | xargs kill -9 || true"
 	},
 	"dependencies": {
@@ -36,6 +36,7 @@
 		"react-dom": "^19.1.7",
 		"react-hot-toast": "^2.6.0",
 		"shadcn": "^4.13.0",
+		"sqlite": "^5.1.1",
 		"tailwind-merge": "^3.6.0",
 		"tw-animate-css": "^1.4.0",
 		"uuid": "^14.0.1",

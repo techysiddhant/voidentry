@@ -110,7 +110,7 @@ export default function AuthPage() {
                     {/* Heading */}
                     <h1 className="font-serif text-5xl leading-[0.95] tracking-tight mb-2">
                         {mode === "signup" ? (
-                            <>Start your <span className="italic">ledger.</span></>
+                            <>Start your <span className="italic">Voidentry.</span></>
                         ) : (
                             <>Welcome <span className="italic">back.</span></>
                         )}

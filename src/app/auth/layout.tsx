@@ -3,8 +3,8 @@ import { Suspense } from "react";
 import AuthLoading from "./loading";
 
 export const metadata: Metadata = {
-    title: "Auth — Ledger",
-    description: "Sign in or create your Ledger account.",
+    title: "Auth — Voidentry",
+    description: "Sign in or create your Voidentry account.",
 };
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
