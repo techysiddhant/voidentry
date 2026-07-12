@@ -8,7 +8,7 @@ import {
     SidebarRail,
 } from "@/components/ui/sidebar";
 import Link from "next/link";
-// import { ActiveCycleWidget } from "./active-cycle-widget";
+import { ActiveCycleWidget } from "./active-cycle-widget";
 import { SidebarNav } from "./sidebar-nav";
 import { NavUser } from "./sidebar-footer";
 
@@ -35,7 +35,7 @@ export function AppSidebar() {
 
             {/* ── Content: Active cycle + nav ── */}
             <SidebarContent className="gap-0 bg-paper">
-                {/* <ActiveCycleWidget /> */}
+                <ActiveCycleWidget />
                 <SidebarNav />
             </SidebarContent>
 
