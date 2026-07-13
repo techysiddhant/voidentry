@@ -23,7 +23,7 @@ const NAV: {
     exact?: boolean;
 }[] = [
         // { to: "/app", label: "Chat", icon: MessageSquare, exact: true },
-        // { to: "/app/entries", label: "Entries", icon: ListOrdered },
+        { to: "/app/entries", label: "Entries", icon: ListOrdered },
         // { to: "/app/insights", label: "Insights", icon: BarChart3 },
         { to: "/app/cycles", label: "Cycles", icon: CalendarRange },
         { to: "/app/settings", label: "Settings", icon: Settings },

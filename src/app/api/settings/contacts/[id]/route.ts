@@ -90,6 +90,7 @@ export async function PUT(
             where: {
                 userId: userId,
                 name: name,
+                deletedAt: { isNull: true },
             },
         });
 

@@ -4,6 +4,7 @@ import getAuth from "@/lib/auth";
 import { getDb } from "@/db/client";
 import { contact } from "@/db/schema";
 import { contactSchema } from "@/lib/validations/settings";
+import { and, eq, isNull, sql } from "drizzle-orm";
 
 /**
  * @api {POST} /api/settings/contacts Create New Contact
@@ -62,16 +63,20 @@ export async function POST(request: Request) {
             );
         }
 
-        // Preflight duplicate check using v1.x object filter format
-        const existing = await db.query.contact.findFirst({
-            where: {
-                userId: userId,
-                name: name,
-                deletedAt: { isNull: true },
-            },
-        });
+        // Preflight duplicate check using lower(name)
+        const existing = await db
+            .select()
+            .from(contact)
+            .where(
+                and(
+                    eq(contact.userId, userId),
+                    eq(sql`lower(${contact.name})`, name.toLowerCase()),
+                    isNull(contact.deletedAt)
+                )
+            )
+            .limit(1);
 
-        if (existing) {
+        if (existing.length > 0) {
             return NextResponse.json(
                 { error: "Contact name already exists." },
                 { status: 400 }

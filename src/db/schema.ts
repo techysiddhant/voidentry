@@ -109,7 +109,7 @@ export const contact = sqliteTable("contact", {
     deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
 }, (table) => ({
     userContactUnique: uniqueIndex("contact_user_name_unique")
-        .on(table.userId, table.name)
+        .on(table.userId, sql`lower(${table.name})`)
         .where(sql`deleted_at IS NULL`),
 }));
 
@@ -134,7 +134,7 @@ export const category = sqliteTable("category", {
     deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
 }, (table) => ({
     categoryCodeUnique: uniqueIndex("category_code_unique")
-        .on(table.code)
+        .on(table.userId, table.code)
         .where(sql`deleted_at IS NULL`),
     userCategoryUnique: uniqueIndex("category_user_name_unique")
         .on(table.userId, table.name)
@@ -173,3 +173,30 @@ export const cycle = sqliteTable("cycle", {
         .on(table.userId, table.label)
         .where(sql`deleted_at IS NULL`),
 }));
+
+export const expense = sqliteTable("expense", {
+    id: text("id").primaryKey().$defaultFn(() => uuidv7()),
+    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    cycleId: text("cycle_id").notNull().references(() => cycle.id, { onDelete: "cascade" }),
+    amount: integer("amount").notNull(), // stored in paise/cents
+    note: text("note").notNull(),
+    categoryId: text("category_id").notNull().references(() => category.id),
+    subCategoryId: text("sub_category_id").references(() => subCategory.id),
+    date: text("date").notNull(), // YYYY-MM-DD
+    paymentMethodId: text("payment_method_id").notNull().references(() => paymentMethod.id),
+    comment: text("comment"),
+    splitMode: text("split_mode"), // equal, exact
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).$onUpdateFn(() => new Date()).notNull(),
+    deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+}, (table) => ({
+    expenseUserCycleIndex: index("expense_user_cycle_idx").on(table.userId, table.cycleId),
+    expenseUserDateIndex: index("expense_user_date_idx").on(table.userId, table.date),
+}));
+
+export const expenseSplitParticipant = sqliteTable("expense_split_participant", {
+    id: text("id").primaryKey().$defaultFn(() => uuidv7()),
+    expenseId: text("expense_id").notNull().references(() => expense.id, { onDelete: "cascade" }),
+    contactId: text("contact_id").references(() => contact.id, { onDelete: "cascade" }), // null = "you"
+    share: integer("share").notNull(), // share in paise/cents
+});

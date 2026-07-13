@@ -350,6 +350,10 @@ function CycleForm({ cycle, defaultCalendar, onSubmit }: CycleFormProps) {
     const handleFormSubmit = async (e: FormEvent) => {
         e.preventDefault();
         if (!label.trim() || !start || !end) return;
+        if (start > end) {
+            toast.error("End date must be on or after the start date.");
+            return;
+        }
         setIsSubmitting(true);
         try {
             await onSubmit({ label: label.trim(), start, end });

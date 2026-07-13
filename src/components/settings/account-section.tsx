@@ -18,18 +18,23 @@ export function AccountSection() {
 
     const handleSignOut = async () => {
         setSigningOut(true);
-        await authClient.signOut({
-            fetchOptions: {
-                onSuccess: () => {
-                    toast.success("Signed out.");
-                    router.push("/auth?mode=signin");
+        try {
+            await authClient.signOut({
+                fetchOptions: {
+                    onSuccess: () => {
+                        toast.success("Signed out.");
+                        router.push("/auth?mode=signin");
+                    },
+                    onError: (ctx) => {
+                        toast.error(ctx.error.message ?? "Sign-out failed.");
+                    },
                 },
-                onError: (ctx) => {
-                    toast.error(ctx.error.message ?? "Sign-out failed.");
-                    setSigningOut(false);
-                },
-            },
-        });
+            });
+        } catch (err: any) {
+            toast.error(err?.message ?? "Sign-out failed.");
+        } finally {
+            setSigningOut(false);
+        }
     };
 
     return (

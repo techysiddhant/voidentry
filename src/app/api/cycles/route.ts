@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import getAuth from "@/lib/auth";
 import { getDb } from "@/db/client";
-import { cycle, userPreferences } from "@/db/schema";
+import { cycle, userPreferences, expense } from "@/db/schema";
+import { and, eq, isNull, sql } from "drizzle-orm";
 import { cycleSchema } from "@/lib/validations/settings";
 import { getCalendarMonth } from "@/lib/utils";
 import { v7 as uuidv7 } from "uuid";
@@ -99,14 +100,32 @@ export async function GET() {
             }
         }
 
-        // Enrich cycles with total spend (for now using mock totals for default cycles)
+        // Enrich cycles with total spend from db
+        const expenseSums = await db
+            .select({
+                cycleId: expense.cycleId,
+                total: sql<number>`sum(${expense.amount})`,
+            })
+            .from(expense)
+            .where(
+                and(
+                    eq(expense.userId, userId),
+                    isNull(expense.deletedAt)
+                )
+            )
+            .groupBy(expense.cycleId);
+
+        const sumsMap = new Map<string, number>();
+        for (const row of expenseSums) {
+            if (row.cycleId) {
+                sumsMap.set(row.cycleId, (row.total || 0) / 100);
+            }
+        }
+
         const enrichedCycles = userCycles.map((c) => {
-            let total = 0;
-            if (c.id === "active-cycle") total = 35639;
-            else if (c.id === "prev-cycle") total = 38420;
             return {
                 ...c,
-                total,
+                total: sumsMap.get(c.id) ?? 0,
             };
         });
 
