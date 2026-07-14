@@ -14,7 +14,7 @@ const Hero = () => {
                     <span className="italic">We'll handle the rest.</span>
                 </h1>
                 <p className="mt-8 max-w-xl text-lg leading-relaxed text-ink/80">
-                    Ledger turns a one-line chat message into a tracked expense — category, date,
+                    Voidentry turns a one-line chat message into a tracked expense — category, date,
                     payment method, splits. All in ₹. Custom cycles when calendar months don't fit your life.
                 </p>
                 <div className="mt-10 flex flex-wrap items-center gap-4">

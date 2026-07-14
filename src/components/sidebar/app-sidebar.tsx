@@ -22,14 +22,14 @@ export function AppSidebar() {
                     href="/app"
                     className="font-serif text-3xl leading-none text-ink hover:no-underline group-data-[collapsible=icon]:hidden"
                 >
-                    Ledger<span className="text-pink">.</span>
+                    Voidentry<span className="text-pink">.</span>
                 </Link>
                 {/* Icon-mode logo — just the 'L.' monogram, centred */}
                 <Link
                     href="/app"
                     className="hidden font-serif text-[22px] leading-none text-ink hover:no-underline group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:justify-center"
                 >
-                    L<span className="text-pink">.</span>
+                    V<span className="text-pink">.</span>
                 </Link>
             </SidebarHeader>
 

@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ChevronsUpDown, LogOut } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
-import { toast } from "sonner";
 import {
     SidebarMenu,
     SidebarMenuButton,
@@ -24,6 +23,7 @@ import {
     AvatarFallback,
     AvatarImage,
 } from "@/components/ui/avatar";
+import toast from "react-hot-toast";
 
 function getInitials(name: string): string {
     return name

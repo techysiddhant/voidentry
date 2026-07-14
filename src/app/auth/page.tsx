@@ -10,7 +10,8 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { authClient } from "@/lib/auth-client";
 import { signupSchema } from "@/lib/validations/auth";
-import { toast } from "sonner";
+import { toast } from "react-hot-toast";
+import SignupForm from "@/components/SignupForm";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -109,7 +110,7 @@ export default function AuthPage() {
                     {/* Heading */}
                     <h1 className="font-serif text-5xl leading-[0.95] tracking-tight mb-2">
                         {mode === "signup" ? (
-                            <>Start your <span className="italic">ledger.</span></>
+                            <>Start your <span className="italic">journey.</span></>
                         ) : (
                             <>Welcome <span className="italic">back.</span></>
                         )}
@@ -140,7 +141,7 @@ export default function AuthPage() {
                         </div>
 
                         {/* Error Alert */}
-                        {errorMsg && (
+                        {errorMsg && !mode && (
                             <div
                                 role="alert"
                                 aria-live="assertive"
@@ -150,39 +151,40 @@ export default function AuthPage() {
                             </div>
                         )}
 
-                        {/* TanStack Form */}
-                        <form
-                            onSubmit={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                form.handleSubmit();
-                            }}
-                            className="space-y-4"
-                        >
-                            {/* Name field (only on signup) */}
-                            {mode === "signup" && (
+                        {mode === "signup" ? (
+                            <SignupForm />
+                        ) : (
+                            <form
+                                onSubmit={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    form.handleSubmit();
+                                }}
+                                className="space-y-4"
+                            >
+                                {/* Email field */}
                                 <form.Field
-                                    name="name"
+                                    name="email"
                                     validators={{
-                                        onChange: ({ value }) => validateName(value),
-                                        onBlur: ({ value }) => validateName(value),
+                                        onChange: ({ value }) => validateEmail(value),
+                                        onBlur: ({ value }) => validateEmail(value),
                                     }}
                                 >
                                     {(field) => (
                                         <FieldWrapper
-                                            label="Name"
+                                            label="Email"
                                             htmlFor={field.name}
                                             error={field.state.meta.errors[0]}
                                         >
                                             <Input
                                                 id={field.name}
-                                                name="name"
-                                                type="text"
-                                                autoComplete="name"
+                                                name="email"
+                                                type="email"
+                                                autoComplete="email"
                                                 value={field.state.value}
                                                 onChange={(e) => field.handleChange(e.target.value)}
                                                 onBlur={field.handleBlur}
-                                                placeholder="John Doe"
+                                                placeholder="you@domain.com"
                                                 aria-invalid={field.state.meta.errors.length > 0}
                                                 aria-describedby={field.state.meta.errors.length > 0 ? `${field.name}-error` : undefined}
                                                 className="mt-1.5 w-full brutal-border bg-paper px-3 py-2.5 font-mono text-sm focus:outline-none focus:brutal-shadow-sm rounded-none border-0 border-inherit shadow-none h-auto"
@@ -190,88 +192,53 @@ export default function AuthPage() {
                                         </FieldWrapper>
                                     )}
                                 </form.Field>
-                            )}
 
-                            {/* Email field */}
-                            <form.Field
-                                name="email"
-                                validators={{
-                                    onChange: ({ value }) => validateEmail(value),
-                                    onBlur: ({ value }) => validateEmail(value),
-                                }}
-                            >
-                                {(field) => (
-                                    <FieldWrapper
-                                        label="Email"
-                                        htmlFor={field.name}
-                                        error={field.state.meta.errors[0]}
-                                    >
-                                        <Input
-                                            id={field.name}
-                                            name="email"
-                                            type="email"
-                                            autoComplete="email"
-                                            value={field.state.value}
-                                            onChange={(e) => field.handleChange(e.target.value)}
-                                            onBlur={field.handleBlur}
-                                            placeholder="you@domain.com"
-                                            aria-invalid={field.state.meta.errors.length > 0}
-                                            aria-describedby={field.state.meta.errors.length > 0 ? `${field.name}-error` : undefined}
-                                            className="mt-1.5 w-full brutal-border bg-paper px-3 py-2.5 font-mono text-sm focus:outline-none focus:brutal-shadow-sm rounded-none border-0 border-inherit shadow-none h-auto"
-                                        />
-                                    </FieldWrapper>
-                                )}
-                            </form.Field>
+                                {/* Password field */}
+                                <form.Field
+                                    name="password"
+                                    validators={{
+                                        onChange: ({ value }) => validatePassword(value),
+                                        onBlur: ({ value }) => validatePassword(value),
+                                    }}
+                                >
+                                    {(field) => (
+                                        <FieldWrapper
+                                            label="Password"
+                                            htmlFor={field.name}
+                                            error={field.state.meta.errors[0]}
+                                        >
+                                            <Input
+                                                id={field.name}
+                                                name="password"
+                                                type="password"
+                                                autoComplete="current-password"
+                                                value={field.state.value}
+                                                onChange={(e) => field.handleChange(e.target.value)}
+                                                onBlur={field.handleBlur}
+                                                placeholder="••••••••"
+                                                aria-invalid={field.state.meta.errors.length > 0}
+                                                aria-describedby={field.state.meta.errors.length > 0 ? `${field.name}-error` : undefined}
+                                                className="mt-1.5 w-full brutal-border bg-paper px-3 py-2.5 font-mono text-sm focus:outline-none focus:brutal-shadow-sm rounded-none border-0 border-inherit shadow-none h-auto"
+                                            />
+                                        </FieldWrapper>
+                                    )}
+                                </form.Field>
 
-                            {/* Password field */}
-                            <form.Field
-                                name="password"
-                                validators={{
-                                    onChange: ({ value }) => validatePassword(value),
-                                    onBlur: ({ value }) => validatePassword(value),
-                                }}
-                            >
-                                {(field) => (
-                                    <FieldWrapper
-                                        label="Password"
-                                        htmlFor={field.name}
-                                        error={field.state.meta.errors[0]}
-                                    >
-                                        <Input
-                                            id={field.name}
-                                            name="password"
-                                            type="password"
-                                            autoComplete={mode === "signup" ? "new-password" : "current-password"}
-                                            value={field.state.value}
-                                            onChange={(e) => field.handleChange(e.target.value)}
-                                            onBlur={field.handleBlur}
-                                            placeholder="••••••••"
-                                            aria-invalid={field.state.meta.errors.length > 0}
-                                            aria-describedby={field.state.meta.errors.length > 0 ? `${field.name}-error` : undefined}
-                                            className="mt-1.5 w-full brutal-border bg-paper px-3 py-2.5 font-mono text-sm focus:outline-none focus:brutal-shadow-sm rounded-none border-0 border-inherit shadow-none h-auto"
-                                        />
-                                    </FieldWrapper>
-                                )}
-                            </form.Field>
-
-                            {/* Submit */}
-                            <form.Subscribe selector={(s) => s.isSubmitting}>
-                                {(isSubmitting) => (
-                                    <button
-                                        type="submit"
-                                        disabled={isSubmitting}
-                                        className="brutal-border brutal-shadow-sm brutal-press w-full bg-pink px-6 py-3 font-mono text-xs font-bold uppercase tracking-widest inline-flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-                                    >
-                                        {isSubmitting
-                                            ? "Please wait…"
-                                            : mode === "signup"
-                                                ? "Create account"
-                                                : "Sign in"}{" "}
-                                        {!isSubmitting && <ArrowRight className="h-3.5 w-3.5" />}
-                                    </button>
-                                )}
-                            </form.Subscribe>
-                        </form>
+                                {/* Submit */}
+                                <form.Subscribe selector={(s) => s.isSubmitting}>
+                                    {(isSubmitting) => (
+                                        <button
+                                            type="submit"
+                                            disabled={isSubmitting}
+                                            className="brutal-border brutal-shadow-sm brutal-press w-full bg-pink px-6 py-3 font-mono text-xs font-bold uppercase tracking-widest inline-flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+                                        >
+                                            {isSubmitting ? "Please wait…" : "Sign in"}
+                                            {!isSubmitting && <ArrowRight className="h-3.5 w-3.5" />}
+                                        </button>
+                                    )}
+                                </form.Subscribe>
+                            </form>
+                        )}
                     </div>
                 </div>
             </main>

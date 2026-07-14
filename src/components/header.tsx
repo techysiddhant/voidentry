@@ -5,7 +5,7 @@ const Header = () => {
         <header className="border-b-2 border-ink">
             <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
                 <Link href="/" className="font-serif text-3xl leading-none tracking-tight">
-                    Ledger<span className="text-pink">.</span>
+                    Voidentry<span className="text-pink">.</span>
                 </Link>
                 <div className="flex items-center gap-3">
                     {/* <ThemeToggle /> */}

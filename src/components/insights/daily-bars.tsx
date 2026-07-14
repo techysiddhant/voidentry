@@ -1,5 +1,7 @@
 "use client";
-import { Category, Cycle, Expense } from "@/lib/expense-store";
+import { Category } from "@/types/category";
+import { Cycle } from "@/types/cycle";
+import { Expense } from "@/types/expense";
 import { buildDailySeries } from "@/lib/insights";
 import { chartColorFromClass } from "@/lib/catalog";
 import { formatMoney } from "@/lib/utils";

@@ -1,6 +1,7 @@
-import { Cycle, Expense } from "@/lib/expense-store";
+import { Expense } from "@/types/expense";
 import CategoryDonut from "../insights/category-donut";
 import { DailyBars } from "../insights/daily-bars";
+import { Cycle } from "@/types/cycle";
 
 const mockCycle: Cycle = { id: "demo", label: "This cycle", start: "2026-06-01", end: "2026-06-30" };
 

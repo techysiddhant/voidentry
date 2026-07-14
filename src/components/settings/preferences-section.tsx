@@ -1,9 +1,4 @@
 "use client";
-
-// PreferencesSection — Money + Cycles preferences.
-// Backend hook: replace localState props with server-fetched user prefs
-// and wire onChange to a PATCH /api/user/prefs call.
-
 import { Section, Row } from "./section";
 
 interface Props {
@@ -27,6 +22,7 @@ export function PreferencesSection({ defaultCalendar, onToggleCalendar, currency
                     <button
                         type="button"
                         role="switch"
+                        aria-label="Default to calendar month"
                         aria-checked={defaultCalendar}
                         onClick={onToggleCalendar}
                         className={[
@@ -36,8 +32,8 @@ export function PreferencesSection({ defaultCalendar, onToggleCalendar, currency
                     >
                         <span
                             className={[
-                                "absolute top-[2px] h-5 w-5 bg-paper border-2 border-ink transition-transform duration-150",
-                                defaultCalendar ? "translate-x-0" : "-translate-x-5",
+                                "absolute left-[2px] top-[2px] h-5 w-5 bg-paper border-2 border-ink transition-transform duration-150",
+                                defaultCalendar ? "translate-x-5" : "translate-x-0",
                             ].join(" ")}
                         />
                         <span className="sr-only">

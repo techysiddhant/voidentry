@@ -1,3 +1,5 @@
+import { Category } from "./category";
+
 export interface CatalogCategory {
     id: string;
     code: string;
@@ -14,3 +16,5 @@ export interface CatalogSubCategory {
     name: string;
     sortOrder: number;
 }
+
+export type DayPoint = { day: number; date: string; total: number; byCat: Partial<Record<Category, number>> };

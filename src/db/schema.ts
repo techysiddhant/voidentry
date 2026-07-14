@@ -1,5 +1,5 @@
 import { sqliteTable, text, integer, uniqueIndex, foreignKey, index } from "drizzle-orm/sqlite-core";
-import { sql } from "drizzle-orm";
+import { sql, defineRelations } from "drizzle-orm";
 import { v7 as uuidv7 } from "uuid";
 
 export const user = sqliteTable("user", {
@@ -54,6 +54,29 @@ export const verification = sqliteTable("verification", {
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).notNull(),
 });
 
+export const consentAuditLogs = sqliteTable("consent_audit_logs", {
+    id: text("id").primaryKey().$defaultFn(() => uuidv7()),
+    userId: text("user_id").notNull().references(() => user.id, { onDelete: "no action" }),
+    termsAccepted: integer("terms_accepted", { mode: "boolean" }).notNull(),
+    privacyAccepted: integer("privacy_accepted", { mode: "boolean" }).notNull(),
+    artifactVersion: text("artifact_version").notNull(),
+    purposeScope: text("purpose_scope", { mode: "json" }).notNull(), // SQLite stores json objects as strings
+    ipAddress: text("ip_address").notNull(),
+    timestampUtc: integer("timestamp_utc", { mode: "timestamp_ms" }).notNull().$defaultFn(() => new Date()),
+});
+
+export const schemaRelations = defineRelations({ user, consentAuditLogs }, (r) => ({
+    user: {
+        consentLogs: r.many.consentAuditLogs(),
+    },
+    consentAuditLogs: {
+        user: r.one.user({
+            from: r.consentAuditLogs.userId,
+            to: r.user.id,
+        }),
+    },
+}));
+
 export const paymentMethodType = sqliteTable("payment_method_type", {
     id: text("id").primaryKey().$defaultFn(() => uuidv7()),
     code: text("code").notNull().unique(),
@@ -61,22 +84,6 @@ export const paymentMethodType = sqliteTable("payment_method_type", {
     createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),
     updatedAt: integer("updated_at", { mode: "timestamp_ms" }).$onUpdateFn(() => new Date()).notNull(),
 });
-
-export const cycle = sqliteTable("cycle", {
-    id: text("id").primaryKey().$defaultFn(() => uuidv7()),
-    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
-    label: text("label").notNull(),
-    start: text("start").notNull(),
-    end: text("end").notNull(),
-    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),
-    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).$onUpdateFn(() => new Date()).notNull(),
-    deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
-}, (table) => ({
-    userCycleUnique: uniqueIndex("cycle_user_id_id_unique").on(table.userId, table.id),
-    userCycleLabelUnique: uniqueIndex("cycle_user_label_unique")
-        .on(table.userId, table.label)
-        .where(sql`deleted_at IS NULL`),
-}));
 
 export const userPreferences = sqliteTable("user_preferences", {
     id: text("id").primaryKey().$defaultFn(() => uuidv7()),
@@ -102,7 +109,7 @@ export const contact = sqliteTable("contact", {
     deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
 }, (table) => ({
     userContactUnique: uniqueIndex("contact_user_name_unique")
-        .on(table.userId, table.name)
+        .on(table.userId, sql`lower(${table.name})`)
         .where(sql`deleted_at IS NULL`),
 }));
 
@@ -127,7 +134,7 @@ export const category = sqliteTable("category", {
     deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
 }, (table) => ({
     categoryCodeUnique: uniqueIndex("category_code_unique")
-        .on(table.code)
+        .on(table.userId, table.code)
         .where(sql`deleted_at IS NULL`),
     userCategoryUnique: uniqueIndex("category_user_name_unique")
         .on(table.userId, table.name)
@@ -151,6 +158,22 @@ export const subCategory = sqliteTable("sub_category", {
         .where(sql`deleted_at IS NULL`),
 }));
 
+export const cycle = sqliteTable("cycle", {
+    id: text("id").primaryKey().$defaultFn(() => uuidv7()),
+    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    label: text("label").notNull(),
+    start: text("start").notNull(),
+    end: text("end").notNull(),
+    createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),
+    updatedAt: integer("updated_at", { mode: "timestamp_ms" }).$onUpdateFn(() => new Date()).notNull(),
+    deletedAt: integer("deleted_at", { mode: "timestamp_ms" }),
+}, (table) => ({
+    userCycleUnique: uniqueIndex("cycle_user_id_id_unique").on(table.userId, table.id),
+    userCycleLabelUnique: uniqueIndex("cycle_user_label_unique")
+        .on(table.userId, table.label)
+        .where(sql`deleted_at IS NULL`),
+}));
+
 export const expense = sqliteTable("expense", {
     id: text("id").primaryKey().$defaultFn(() => uuidv7()),
     userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
@@ -160,9 +183,7 @@ export const expense = sqliteTable("expense", {
     categoryId: text("category_id").notNull().references(() => category.id),
     subCategoryId: text("sub_category_id").references(() => subCategory.id),
     date: text("date").notNull(), // YYYY-MM-DD
-    paymentMethodId: text("payment_method_id").references(() => paymentMethod.id, { onDelete: "set null" }),
-    paymentType: text("payment_type").notNull(), // cash, card, upi, netbanking, wallet (matching type code)
-    paymentCardName: text("payment_card_name"),
+    paymentMethodId: text("payment_method_id").notNull().references(() => paymentMethod.id),
     comment: text("comment"),
     splitMode: text("split_mode"), // equal, exact
     createdAt: integer("created_at", { mode: "timestamp_ms" }).$defaultFn(() => new Date()).notNull(),

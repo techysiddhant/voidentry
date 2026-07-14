@@ -1,6 +1,7 @@
-import { http } from "../http";
-import type { Contact, PaymentMethod } from "@/components/settings/types";
+import { Contact } from "@/types/split";
+import { http } from "./http";
 import type { CatalogCategory, CatalogSubCategory } from "@/types/catalog";
+import { PaymentMethod } from "@/types/payment";
 
 export interface SettingsPayload {
     preferences: {
@@ -10,6 +11,7 @@ export interface SettingsPayload {
     };
     contacts: Contact[];
     paymentMethods: PaymentMethod[];
+    paymentMethodTypes: { code: string; name: string }[];
     categories: CatalogCategory[];
     subCategories: CatalogSubCategory[];
 }

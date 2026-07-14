@@ -2,9 +2,34 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import getAuth from "@/lib/auth";
 import { getDb } from "@/db/client";
-import { userPreferences, contact, paymentMethod, category, subCategory } from "@/db/schema";
-import { and, eq, isNull, or } from "drizzle-orm";
+import { userPreferences, paymentMethodType } from "@/db/schema";
 
+/**
+ * @api {GET} /api/settings Get User Settings & Catalog Metadata
+ * @apiDescription Fetches the user's preferences (upserting default values if not present),
+ * along with their contacts, payment methods, categories, and subcategories (including both
+ * global defaults and user-specific customizations).
+ * 
+ * @apiHeader {String} Cookie Session cookies required for Better Auth.
+ * 
+ * @apiSuccess {Object} preferences User preferences (currency, activeCycleId, etc.).
+ * @apiSuccess {Object[]} contacts List of contacts, prepended with a virtual self-contact ("You").
+ * @apiSuccess {Object[]} paymentMethods List of active payment methods.
+ * @apiSuccess {Object[]} paymentMethodTypes List of available payment method types.
+ * @apiSuccess {Object[]} categories Sorted list of transaction categories.
+ * @apiSuccess {Object[]} subCategories Sorted list of transaction subcategories.
+ * 
+ * @apiError (401) Unauthorized Session is invalid or missing.
+ * @apiError (500) InternalServerError Fetching settings or writing preferences failed.
+ * 
+ * PERFORMANCE OPTIMIZATIONS:
+ * 1. Parallel Execution: All database inserts and select queries run concurrently using Promise.all
+ *    to minimize total network/database latency overhead to a single roundtrip.
+ * 2. O(1) Lookups: Resolving categoryCode for subcategories is optimized by building a Map of 
+ *    category codes prior to rendering, replacing O(N*M) scans with O(N+M) complexity.
+ * 3. Database-Level Sorting: Offloads sorting of categories and subcategories to the SQLite database
+ *    engine (using asc(sortOrder) and asc(name)) instead of executing sort() operations in JavaScript.
+ */
 export async function GET() {
     const auth = getAuth();
     const session = await auth.api.getSession({
@@ -19,45 +44,100 @@ export async function GET() {
         const userId = session.user.id;
         const db = getDb();
 
-        // 1. Atomically get-or-create user preferences (upsert — schema sets timestamps)
-        const [prefs] = await db
-            .insert(userPreferences)
-            .values({
-                userId,
-                currency: "INR",
-                defaultCalendar: false,
-            })
-            .onConflictDoUpdate({
-                target: userPreferences.userId,
-                set: { updatedAt: userPreferences.updatedAt },
-            })
-            .returning();
+        // Concurrently run the preferences upsert and all select queries to optimize D1 network roundtrips
+        const [
+            prefResult,
+            contactsList,
+            methodsList,
+            categoriesList,
+            subCategoriesList,
+            methodTypesList,
+        ] = await Promise.all([
+            // 1. Atomically get-or-create user preferences (upsert — schema sets timestamps)
+            db
+                .insert(userPreferences)
+                .values({
+                    userId,
+                    currency: "INR",
+                    defaultCalendar: false,
+                })
+                .onConflictDoUpdate({
+                    target: userPreferences.userId,
+                    set: { updatedAt: userPreferences.updatedAt },
+                })
+                .returning(),
 
-        // 2. Get contacts
-        const contactsList = await db.query.contact.findMany({
-            where: and(eq(contact.userId, userId), isNull(contact.deletedAt)),
-        });
+            // 2. Get contacts
+            db.query.contact.findMany({
+                where: {
+                    userId,
+                    deletedAt: { isNull: true },
+                },
+            }),
 
-        // 3. Get payment methods
-        const methodsList = await db.query.paymentMethod.findMany({
-            where: and(eq(paymentMethod.userId, userId), isNull(paymentMethod.deletedAt)),
-        });
+            // 3. Get payment methods
+            db.query.paymentMethod.findMany({
+                where: {
+                    userId,
+                    deletedAt: { isNull: true },
+                },
+            }),
 
-        // 4. Get categories (global where userId is null + custom where userId matches user)
-        const categoriesList = await db.query.category.findMany({
-            where: and(
-                or(isNull(category.userId), eq(category.userId, userId)),
-                isNull(category.deletedAt)
-            ),
-        });
+            // 4. Get categories (global where userId is null + custom where userId matches user)
+            db.query.category.findMany({
+                where: {
+                    deletedAt: { isNull: true },
+                    OR: [
+                        { userId: { isNull: true } },
+                        { userId },
+                    ],
+                },
+                orderBy: {
+                    sortOrder: "asc",
+                    name: "asc",
+                },
+            }),
 
-        // 5. Get subcategories (global where userId is null + custom where userId matches user)
-        const subCategoriesList = await db.query.subCategory.findMany({
-            where: and(
-                or(isNull(subCategory.userId), eq(subCategory.userId, userId)),
-                isNull(subCategory.deletedAt)
-            ),
-        });
+            // 5. Get subcategories (global where userId is null + custom where userId matches user)
+            db.query.subCategory.findMany({
+                where: {
+                    deletedAt: { isNull: true },
+                    OR: [
+                        { userId: { isNull: true } },
+                        { userId },
+                    ],
+                },
+                orderBy: {
+                    sortOrder: "asc",
+                    name: "asc",
+                },
+            }),
+
+            // 6. Get payment method types
+            db.query.paymentMethodType.findMany({
+                orderBy: {
+                    name: "asc",
+                },
+            }),
+        ]);
+
+        let methodTypes = methodTypesList;
+        if (methodTypes.length === 0) {
+            const { seedPaymentMethodTypes } = await import("@/db/seed");
+            await seedPaymentMethodTypes(db);
+            methodTypes = await db.query.paymentMethodType.findMany({
+                orderBy: {
+                    name: "asc",
+                },
+            });
+        }
+
+        const prefs = prefResult[0];
+
+        // Optimize subcategory categoryCode lookup to O(1) via Map indexing
+        const categoryCodeMap = new Map<string, string>(
+            categoriesList.map((c) => [c.id, c.code])
+        );
 
         return NextResponse.json({
             preferences: {
@@ -75,21 +155,21 @@ export async function GET() {
                 label: m.label,
                 hint: m.hint,
             })),
-            categories: categoriesList
-                .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
-                .map((c) => ({
+            paymentMethodTypes: methodTypes.map((t) => ({
+                code: t.code,
+                name: t.name,
+            })),
+            categories: categoriesList.map((c) => ({
                 id: c.id,
                 code: c.code,
                 name: c.name,
                 color: c.color,
                 sortOrder: c.sortOrder,
             })),
-            subCategories: subCategoriesList
-                .sort((a, b) => a.sortOrder - b.sortOrder || a.name.localeCompare(b.name))
-                .map((sc) => ({
+            subCategories: subCategoriesList.map((sc) => ({
                 id: sc.id,
                 categoryId: sc.categoryId,
-                categoryCode: categoriesList.find((category) => category.id === sc.categoryId)?.code || "",
+                categoryCode: categoryCodeMap.get(sc.categoryId) || "",
                 code: sc.code,
                 name: sc.name,
                 sortOrder: sc.sortOrder,

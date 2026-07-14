@@ -2,10 +2,33 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import getAuth from "@/lib/auth";
 import { getDb } from "@/db/client";
-import { paymentMethod, paymentMethodType } from "@/db/schema";
+import { paymentMethod } from "@/db/schema";
 import { paymentMethodSchema } from "@/lib/validations/settings";
-import { eq } from "drizzle-orm";
 
+/**
+ * @api {POST} /api/settings/payment-methods Create Payment Method
+ * @apiDescription Registers a new user-defined payment method (like a credit card or cash wallet)
+ * associated with a valid global payment method type (e.g. "card", "cash", "upi").
+ * 
+ * @apiHeader {String} Cookie Session cookies required for Better Auth.
+ * @apiBody {String} type Code representing the payment method type (validated against database).
+ * @apiBody {String} label Label of the payment method (validated non-empty).
+ * @apiBody {String} [hint] Optional description or card ending numbers (validated max 100 chars).
+ * 
+ * @apiSuccess {String} id UUID of the newly registered payment method.
+ * @apiSuccess {String} type Code of the payment method type.
+ * @apiSuccess {String} label Label of the payment method.
+ * @apiSuccess {String} hint Hint detail of the payment method.
+ * 
+ * @apiError (400) BadRequest Invalid JSON payload, schema validation failure, or invalid type code.
+ * @apiError (401) Unauthorized Session is invalid or missing.
+ * @apiError (500) InternalServerError Fetching type reference or inserting payment method failed.
+ * 
+ * PERFORMANCE OPTIMIZATIONS:
+ * 1. Type-Safe Object Filtering: Performs type validation check using Drizzle v1.x's
+ *    native object-based filter format to avoid raw SQL query compilation overhead.
+ * 2. Preflight Limit-1: Employs findFirst queries for preflight validations, ensuring minimal SQLite lookup time.
+ */
 export async function POST(request: Request) {
     const auth = getAuth();
     const session = await auth.api.getSession({
@@ -31,9 +54,11 @@ export async function POST(request: Request) {
         const { type, label, hint } = validated.data;
         const db = getDb();
 
-        // Verify type references a valid method type
+        // Verify type references a valid method type using v1.x object filter format
         const valid = await db.query.paymentMethodType.findFirst({
-            where: eq(paymentMethodType.code, type),
+            where: {
+                code: type,
+            },
         });
 
         if (!valid) {

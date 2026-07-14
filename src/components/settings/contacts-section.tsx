@@ -1,20 +1,18 @@
 "use client";
 
-// ContactsSection — manages the list of people you split expenses with.
-// Fully integrated with TanStack Form and Zod client-side validation.
-
 import { useState } from "react";
 import { Plus, Trash2, Pencil, Check, X } from "lucide-react";
 import { useForm } from "@tanstack/react-form";
 import { contactSchema } from "@/lib/validations/settings";
-import type { Contact } from "./types";
 import { Section } from "./section";
+import { Contact } from "@/types/split";
 
 interface Props {
     contacts: Contact[];
     onAdd: (name: string) => Promise<unknown>;
     onUpdate: (id: string, name: string) => Promise<unknown>;
     onRemove: (id: string) => void;
+    disabled?: boolean;
 }
 
 function validateName(value: string): string | undefined {
@@ -22,7 +20,7 @@ function validateName(value: string): string | undefined {
     if (!res.success) return res.error.issues[0].message;
 }
 
-export function ContactsSection({ contacts, onAdd, onUpdate, onRemove }: Props) {
+export function ContactsSection({ contacts, onAdd, onUpdate, onRemove, disabled = false }: Props) {
     const [editingId, setEditingId] = useState<string | null>(null);
 
     const form = useForm({
@@ -75,8 +73,9 @@ export function ContactsSection({ contacts, onAdd, onUpdate, onRemove }: Props) 
                                 <div className="flex items-center gap-1.5 shrink-0">
                                     <button
                                         onClick={() => startEdit(c)}
+                                        disabled={disabled}
                                         aria-label={`Edit ${c.name}`}
-                                        className="brutal-border h-7 w-7 flex items-center justify-center bg-paper hover:bg-yellow transition-colors"
+                                        className="brutal-border h-7 w-7 flex items-center justify-center bg-paper hover:bg-yellow transition-colors disabled:opacity-50 disabled:pointer-events-none"
                                     >
                                         <Pencil className="h-3 w-3" />
                                     </button>
@@ -85,8 +84,9 @@ export function ContactsSection({ contacts, onAdd, onUpdate, onRemove }: Props) 
                                             if (editingId === c.id) resetForm();
                                             onRemove(c.id);
                                         }}
+                                        disabled={disabled}
                                         aria-label={`Remove ${c.name}`}
-                                        className="brutal-border h-7 w-7 flex items-center justify-center bg-paper hover:bg-pink transition-colors"
+                                        className="brutal-border h-7 w-7 flex items-center justify-center bg-paper hover:bg-pink transition-colors disabled:opacity-50 disabled:pointer-events-none"
                                     >
                                         <Trash2 className="h-3 w-3" />
                                     </button>
@@ -114,8 +114,9 @@ export function ContactsSection({ contacts, onAdd, onUpdate, onRemove }: Props) 
                             <button
                                 type="button"
                                 onClick={resetForm}
+                                disabled={disabled}
                                 aria-label="Cancel edit"
-                                className="brutal-border bg-paper h-6 w-6 flex items-center justify-center"
+                                className="brutal-border bg-paper h-6 w-6 flex items-center justify-center disabled:opacity-50 disabled:pointer-events-none"
                             >
                                 <X className="h-3 w-3" />
                             </button>
@@ -139,17 +140,19 @@ export function ContactsSection({ contacts, onAdd, onUpdate, onRemove }: Props) 
                                         onBlur={field.handleBlur}
                                         placeholder="add a person…"
                                         aria-label="Contact name"
+                                        disabled={disabled}
                                         aria-invalid={field.state.meta.errors.length > 0}
                                         aria-describedby={
                                             field.state.meta.errors.length > 0
                                                 ? `${field.name}-error`
                                                 : undefined
                                         }
-                                        className="flex-1 brutal-border bg-paper px-3 py-2 font-mono text-sm focus:outline-none"
+                                        className="flex-1 brutal-border bg-paper px-3 py-2 font-mono text-sm focus:outline-none disabled:bg-secondary disabled:text-mute"
                                     />
                                     <button
                                         type="submit"
-                                        className="brutal-border brutal-press bg-yellow px-3 py-2 font-mono text-[11px] font-bold uppercase tracking-widest inline-flex items-center gap-1.5 shrink-0"
+                                        disabled={disabled}
+                                        className="brutal-border brutal-press bg-yellow px-3 py-2 font-mono text-[11px] font-bold uppercase tracking-widest inline-flex items-center gap-1.5 shrink-0 disabled:opacity-50 disabled:pointer-events-none"
                                     >
                                         {editingId ? (
                                             <>

@@ -1,9 +1,12 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { Filter, Search, X } from "lucide-react";
+import { useQuery } from "@tanstack/react-query";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { PAYMENT_META, formatMoney, useExpenses, type Expense } from "@/lib/expense-store";
-import type { EntryFilter } from "@/lib/entry-filter";
-import { activeFilterCount } from "@/lib/entry-filter";
+import { settingsApi } from "@/lib/api/settings";
+import { QUERY_KEYS } from "@/lib/query-keys";
+import { formatMoney } from "@/lib/utils";
+import type { Expense } from "@/types/expense";
+import { activeFilterCount, type EntryFilter } from "@/lib/entry-filter";
 import { FilterPanel } from "./filter-pannel";
 
 export function FilterBar({
@@ -23,7 +26,30 @@ export function FilterBar({
     totalCount: number;
     filteredTotal: number;
 }) {
-    const { paymentMethods, categoryByCode, subCategoryByCode } = useExpenses();
+    const { data: settings } = useQuery({
+        queryKey: QUERY_KEYS.SETTINGS,
+        queryFn: settingsApi.getSettings,
+    });
+
+    const categoryByCode = useMemo(() => {
+        const record: Record<string, any> = {};
+        settings?.categories?.forEach((c) => {
+            record[c.code] = c;
+        });
+        return record;
+    }, [settings?.categories]);
+
+    const subCategoryByCode = useMemo(() => {
+        const record: Record<string, any> = {};
+        settings?.subCategories?.forEach((s) => {
+            record[`${s.categoryCode}:${s.code}`] = s;
+        });
+        return record;
+    }, [settings?.subCategories]);
+
+    const paymentMethods = useMemo(() => settings?.paymentMethods ?? [], [settings]);
+    const paymentMethodTypes = useMemo(() => settings?.paymentMethodTypes ?? [], [settings]);
+
     const [q, setQ] = useState(filter.q ?? "");
     const [open, setOpen] = useState(false);
 
@@ -43,7 +69,7 @@ export function FilterBar({
     }, [filter.q]);
 
     const count = activeFilterCount(filter);
-    const chips = buildChips(filter, paymentMethods, categoryByCode, subCategoryByCode);
+    const chips = buildChips(filter, paymentMethods, categoryByCode, subCategoryByCode, paymentMethodTypes);
 
     return (
         <div className="mt-4 brutal-border bg-paper">
@@ -51,6 +77,7 @@ export function FilterBar({
                 <label className="flex items-center gap-2 flex-1 min-w-[200px] px-3 py-2 border-r-2 border-ink">
                     <Search className="h-3.5 w-3.5 text-mute" />
                     <input
+                        aria-label="Search entries"
                         value={q}
                         onChange={(e) => setQ(e.target.value)}
                         placeholder="search note, sub, comment…"
@@ -117,46 +144,60 @@ function buildChips(
     pms: { id: string; label: string }[],
     categoryByCode: Record<string, { name: string }>,
     subCategoryByCode: Record<string, { name: string }>,
+    paymentMethodTypes: { code: string; name: string }[],
 ): Chip[] {
     const chips: Chip[] = [];
-    if (f.q) chips.push({ key: "q", label: `“${f.q}”`, remove: (x) => ({ ...x, q: undefined }) });
+    if (f.q) chips.push({ key: "q", label: `“${f.q}”`, remove: (x) => ({ ...x, q: null }) });
     for (const c of f.cats ?? []) chips.push({
         key: `c-${c}`,
         label: `#${categoryByCode[c]?.name ?? c}`,
-        remove: (x) => ({ ...x, cats: (x.cats ?? []).filter((y) => y !== c).length ? (x.cats ?? []).filter((y) => y !== c) : undefined }),
+        remove: (x) => ({ ...x, cats: (x.cats ?? []).filter((y) => y !== c).length ? (x.cats ?? []).filter((y) => y !== c) : null }),
     });
-    for (const s of f.subs ?? []) chips.push({
-        key: `s-${s}`,
-        label: subCategoryByCode[s]?.name ?? s,
-        remove: (x) => ({ ...x, subs: (x.subs ?? []).filter((y) => y !== s).length ? (x.subs ?? []).filter((y) => y !== s) : undefined }),
-    });
+    for (const s of f.subs ?? []) {
+        const parts = s.split(":");
+        const label = subCategoryByCode[s]?.name ?? (parts.length === 2 ? parts[1] : s);
+        chips.push({
+            key: `s-${s}`,
+            label: label,
+            remove: (x) => ({ ...x, subs: (x.subs ?? []).filter((y) => y !== s).length ? (x.subs ?? []).filter((y) => y !== s) : null }),
+        });
+    }
     for (const id of f.pms ?? []) {
         const pm = pms.find((m) => m.id === id);
         chips.push({
             key: `pm-${id}`,
             label: pm?.label ?? "pm",
-            remove: (x) => ({ ...x, pms: (x.pms ?? []).filter((y) => y !== id).length ? (x.pms ?? []).filter((y) => y !== id) : undefined }),
+            remove: (x) => ({ ...x, pms: (x.pms ?? []).filter((y) => y !== id).length ? (x.pms ?? []).filter((y) => y !== id) : null }),
         });
     }
-    for (const p of f.pts ?? []) chips.push({
-        key: `pt-${p}`,
-        label: PAYMENT_META[p].short,
-        remove: (x) => ({ ...x, pts: (x.pts ?? []).filter((y) => y !== p).length ? (x.pts ?? []).filter((y) => y !== p) : undefined }),
-    });
+    const defaultLabels: Record<string, string> = {
+        netbanking: "Net",
+        wallet: "Wal",
+        paylater: "Later",
+    };
+    for (const p of f.pts ?? []) {
+        const pmType = paymentMethodTypes.find((t) => t.code === p);
+        const displayLabel = pmType ? (defaultLabels[pmType.code] ?? pmType.name) : p;
+        chips.push({
+            key: `pt-${p}`,
+            label: displayLabel,
+            remove: (x) => ({ ...x, pts: (x.pts ?? []).filter((y) => y !== p).length ? (x.pts ?? []).filter((y) => y !== p) : null }),
+        });
+    }
     if (f.min != null || f.max != null) chips.push({
         key: "amt",
         label: `₹${f.min ?? "0"}–${f.max ?? "∞"}`,
-        remove: (x) => ({ ...x, min: undefined, max: undefined }),
+        remove: (x) => ({ ...x, min: null, max: null }),
     });
     if (f.from || f.to) chips.push({
         key: "range",
         label: `${f.from ?? "…"} → ${f.to ?? "…"}`,
-        remove: (x) => ({ ...x, from: undefined, to: undefined }),
+        remove: (x) => ({ ...x, from: null, to: null }),
     });
     if (f.date) chips.push({
         key: "date",
         label: `on ${f.date}`,
-        remove: (x) => ({ ...x, date: undefined }),
+        remove: (x) => ({ ...x, date: null }),
     });
     if (f.scope === "all") chips.push({
         key: "scope",
@@ -166,7 +207,7 @@ function buildChips(
     if (f.splitOnly) chips.push({
         key: "split",
         label: "splits only",
-        remove: (x) => ({ ...x, splitOnly: undefined }),
+        remove: (x) => ({ ...x, splitOnly: null }),
     });
     return chips;
 }

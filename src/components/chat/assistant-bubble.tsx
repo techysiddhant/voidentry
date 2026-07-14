@@ -1,6 +1,6 @@
 "use client";
 
-import type { Msg, PendingDraft } from "@/types/expense";
+import type { Msg, PendingDraft } from "@/types/chat";
 import { DraftCard } from "./draft-card";
 
 interface AssistantBubbleProps {

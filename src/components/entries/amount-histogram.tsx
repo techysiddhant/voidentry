@@ -1,4 +1,4 @@
-import type { Expense } from "@/lib/expense-store";
+import type { Expense } from "@/types/expense";
 
 export function AmountHistogram({ expenses, min, max }: { expenses: Expense[]; min?: number; max?: number }) {
     if (expenses.length === 0) return null;
@@ -32,7 +32,7 @@ export function AmountHistogram({ expenses, min, max }: { expenses: Expense[]; m
                         y={H - h - 2}
                         width={bw - 2}
                         height={h}
-                        fill={inRange(i) ? "var(--ink)" : "var(--ink)"}
+                        fill="var(--ink)"
                         opacity={inRange(i) ? 1 : 0.2}
                     />
                 );

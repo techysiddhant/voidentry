@@ -1,17 +1,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { X, Plus, Users, Trash2 } from "lucide-react";
-import {
-    type Expense,
-    type ExpenseInput,
-    type ExpenseCreateInput,
-    type PaymentType,
-    type Split,
-    type SplitMode,
-    PAYMENT_META,
-    formatMoney,
-    useExpenses,
-} from "@/lib/expense-store";
-import type { Category } from "@/lib/expense-store";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { Expense, ExpenseCreateInput, ExpenseInput } from "@/types/expense";
+import { PaymentType } from "@/types/payment";
+import { Category } from "@/types/category";
+import { Split, SplitMode } from "@/types/split";
+import { formatMoney } from "@/lib/utils";
+import { settingsApi } from "@/lib/api/settings";
+import { entriesApi } from "@/lib/api/entries";
+import { QUERY_KEYS } from "@/lib/query-keys";
+import toast from "react-hot-toast";
 
 type Props = {
     open: boolean;
@@ -23,24 +21,89 @@ type Props = {
     }) | null;
 };
 
-const PAY: PaymentType[] = ["cash", "card", "upi", "netbanking", "wallet"];
-
 function todayISO() {
-    return new Date().toISOString().slice(0, 10);
+    const date = new Date();
+    const month = String(date.getMonth() + 1).padStart(2, "0");
+    const day = String(date.getDate()).padStart(2, "0");
+    return `${date.getFullYear()}-${month}-${day}`;
 }
 
 export function ExpenseDialog({ open, onClose, editing, initial }: Props) {
-    const {
-        addExpense,
-        updateExpense,
-        removeExpense,
-        contacts,
-        paymentMethods,
-        categories,
-        categoryByCode,
-        subCategoryByCode,
-        subCategoriesByCategoryCode,
-    } = useExpenses();
+    const queryClient = useQueryClient();
+
+    // 1. Fetch settings
+    const { data: settings, isLoading: isSettingsLoading } = useQuery({
+        queryKey: QUERY_KEYS.SETTINGS,
+        queryFn: settingsApi.getSettings,
+    });
+
+    const activeCycleId = settings?.preferences?.activeCycleId;
+
+    const categories = useMemo(() => settings?.categories ?? [], [settings]);
+    const paymentMethods = useMemo(() => settings?.paymentMethods ?? [], [settings]);
+    const paymentMethodTypes = useMemo(() => settings?.paymentMethodTypes ?? [], [settings]);
+    const contacts = useMemo(() => settings?.contacts ?? [], [settings]);
+
+    const categoryByCode = useMemo(() => {
+        const record: Record<string, any> = {};
+        settings?.categories?.forEach((c) => {
+            record[c.code] = c;
+        });
+        return record;
+    }, [settings?.categories]);
+
+    const subCategoriesByCategoryCode = useMemo(() => {
+        const record: Record<string, any[]> = {};
+        settings?.subCategories?.forEach((s) => {
+            const arr = record[s.categoryCode] ?? [];
+            arr.push(s);
+            record[s.categoryCode] = arr;
+        });
+        return record;
+    }, [settings?.subCategories]);
+
+    // 2. Mutations
+    const addMutation = useMutation({
+        mutationFn: entriesApi.addEntry,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ENTRIES] });
+            queryClient.invalidateQueries({ queryKey: QUERY_KEYS.SETTINGS });
+            toast.success("Entry added.");
+            onClose();
+        },
+        onError: (err: any) => {
+            const msg = err.response?.data?.error || "Failed to add entry.";
+            toast.error(msg);
+        },
+    });
+
+    const updateMutation = useMutation({
+        mutationFn: ({ id, data }: { id: string; data: ExpenseCreateInput }) =>
+            entriesApi.updateEntry(id, data),
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ENTRIES] });
+            queryClient.invalidateQueries({ queryKey: QUERY_KEYS.SETTINGS });
+            toast.success("Entry updated.");
+            onClose();
+        },
+        onError: (err: any) => {
+            const msg = err.response?.data?.error || "Failed to update entry.";
+            toast.error(msg);
+        },
+    });
+
+    const deleteMutation = useMutation({
+        mutationFn: entriesApi.removeEntry,
+        onSuccess: () => {
+            queryClient.invalidateQueries({ queryKey: [QUERY_KEYS.ENTRIES] });
+            toast.success("Entry deleted.");
+            onClose();
+        },
+        onError: (err: any) => {
+            const msg = err.response?.data?.error || "Failed to delete entry.";
+            toast.error(msg);
+        },
+    });
 
     const seed: ExpenseInput = useMemo(() => {
         if (editing) {
@@ -94,6 +157,7 @@ export function ExpenseDialog({ open, onClose, editing, initial }: Props) {
     const [newSub, setNewSub] = useState("");
     const [newSubCategoryName, setNewSubCategoryName] = useState(initial?._newSubCategoryName ?? "");
 
+    const editingId = editing?.id;
     // Reset state whenever dialog is reopened with different seed
     useEffect(() => {
         if (!open) return;
@@ -143,7 +207,8 @@ export function ExpenseDialog({ open, onClose, editing, initial }: Props) {
         setShowSubInput(false);
         setNewSub("");
         setNewSubCategoryName(initial?._newSubCategoryName ?? "");
-    }, [open, seed, initial, paymentMethods]);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [open, editingId]);
 
     const amt = parseFloat(amount) || 0;
     const subs = useMemo(() => {
@@ -169,19 +234,36 @@ export function ExpenseDialog({ open, onClose, editing, initial }: Props) {
         ? splitIds.length >= 2 && amt > 0
         : splitIds.length >= 2 && amt > 0 && Math.abs(exactSum - amt) < 0.01;
 
-    const canSave = amt > 0 && !!categoryCode && !!date && splitValid;
-
     const toggleId = (id: string) => {
         setSplitIds((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
     };
+
+    const canSave = amt > 0 && !!categoryCode && !!date && splitValid;
 
     const onSave = () => {
         if (!canSave) return;
         let split: Split | undefined;
         if (splitOn && splitIds.length >= 2) {
-            const participants = splitMode === "equal"
-                ? splitIds.map((id) => ({ contactId: id, share: +(amt / splitIds.length).toFixed(2) }))
-                : splitIds.map((id) => ({ contactId: id, share: parseFloat(exactShares[id] || "0") || 0 }));
+            let participants: { contactId: string; share: number }[] = [];
+            if (splitMode === "equal") {
+                const totalCents = Math.round(amt * 100);
+                const numPeople = splitIds.length;
+                const baseCents = Math.floor(totalCents / numPeople);
+                const remainderCents = totalCents % numPeople;
+                participants = splitIds.map((id, index) => {
+                    const addedCent = index < remainderCents ? 1 : 0;
+                    const shareCents = baseCents + addedCent;
+                    return {
+                        contactId: id,
+                        share: +(shareCents / 100).toFixed(2),
+                    };
+                });
+            } else {
+                participants = splitIds.map((id) => ({
+                    contactId: id,
+                    share: parseFloat(exactShares[id] || "0") || 0,
+                }));
+            }
             split = { mode: splitMode, participants };
         }
 
@@ -202,18 +284,43 @@ export function ExpenseDialog({ open, onClose, editing, initial }: Props) {
             _newSubCategoryName: !subCategoryCode && newSubCategoryName ? newSubCategoryName : undefined,
         };
 
-        if (editing) updateExpense(editing.id, input);
-        else addExpense(input);
-        onClose();
+        if (editing) {
+            updateMutation.mutate({ id: editing.id, data: input });
+        } else {
+            addMutation.mutate(input);
+        }
     };
 
     const onDelete = () => {
         if (!editing) return;
-        removeExpense(editing.id);
-        onClose();
+        deleteMutation.mutate(editing.id);
     };
 
     if (!open) return null;
+
+    if (isSettingsLoading || !settings) {
+        return (
+            <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 overflow-y-auto" onClick={onClose}>
+                <div
+                    className="brutal-border brutal-shadow bg-paper w-full max-w-lg my-8"
+                    onClick={(e) => e.stopPropagation()}
+                >
+                    <div className="flex items-center justify-between border-b-2 border-ink px-5 py-3">
+                        <div className="font-mono text-xs uppercase tracking-widest">{editing ? "edit entry" : "new entry"}</div>
+                        <button onClick={onClose} className="brutal-border bg-paper h-7 w-7 flex items-center justify-center" aria-label="Close">
+                            <X className="h-3.5 w-3.5" />
+                        </button>
+                    </div>
+                    <div className="flex h-[200px] items-center justify-center font-mono text-xs uppercase tracking-widest text-mute">
+                        Loading...
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
+    const selectedPmType = paymentMethodTypes.find((t) => t.code === payType);
+    const placeholderLabel = selectedPmType?.name ?? payType;
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink/40 p-4 overflow-y-auto" onClick={onClose}>
@@ -363,22 +470,22 @@ export function ExpenseDialog({ open, onClose, editing, initial }: Props) {
                     <div>
                         <Label>Payment</Label>
                         <div className="mt-1.5 flex flex-wrap gap-1.5">
-                            {PAY.map((p) => (
+                            {paymentMethodTypes.map((pmType) => (
                                 <button
-                                    key={p}
+                                    key={pmType.code}
                                     type="button"
                                     onClick={() => {
-                                        setPayType(p);
-                                        if (methodId && paymentMethods.find((m) => m.id === methodId)?.type !== p) {
+                                        setPayType(pmType.code);
+                                        if (methodId && paymentMethods.find((m) => m.id === methodId)?.type !== pmType.code) {
                                             setMethodId(undefined);
                                         }
                                     }}
                                     className={[
                                         "brutal-border brutal-press px-3 py-1.5 font-mono text-[11px] font-bold uppercase tracking-widest",
-                                        payType === p ? "bg-teal text-paper" : "bg-paper",
+                                        payType === pmType.code ? "bg-teal text-paper" : "bg-paper",
                                     ].join(" ")}
                                 >
-                                    {PAYMENT_META[p].label}
+                                    {pmType.name}
                                 </button>
                             ))}
                         </div>
@@ -451,7 +558,7 @@ export function ExpenseDialog({ open, onClose, editing, initial }: Props) {
                                                 autoFocus
                                                 value={newMethodLabel}
                                                 onChange={(e) => setNewMethodLabel(e.target.value)}
-                                                placeholder={`name (e.g. ${payType === "card" ? "HDFC Millennia" : "Personal " + PAYMENT_META[payType].label})`}
+                                                placeholder={`name (e.g. ${payType === "card" ? "HDFC Millennia" : "Personal " + placeholderLabel})`}
                                                 className="w-full brutal-border bg-paper px-2 py-1 font-mono text-[11px] focus:outline-none"
                                             />
                                             <input
@@ -528,7 +635,7 @@ export function ExpenseDialog({ open, onClose, editing, initial }: Props) {
                                 className={`brutal-border h-6 w-12 relative inline-block cursor-pointer ${splitOn ? "bg-teal" : "bg-paper"}`}
                             >
                                 <span
-                                    className={`absolute top-[1px] brutal-border h-[14px] w-[14px] transition-[transform,background-color] duration-150 ${splitOn ? "translate-x-[27px] bg-ink" : "translate-x-[3px] bg-paper"}`}
+                                    className={`absolute top-[3px] brutal-border h-[14px] w-[14px] transition-[transform,background-color] duration-150 ${splitOn ? "translate-x-1 bg-ink" : "-translate-x-5 bg-paper"}`}
                                 />
                             </span>
                         </button>
@@ -626,7 +733,8 @@ export function ExpenseDialog({ open, onClose, editing, initial }: Props) {
                     {editing ? (
                         <button
                             onClick={onDelete}
-                            className="brutal-border brutal-press bg-paper px-3 py-2 font-mono text-[11px] font-bold uppercase tracking-widest inline-flex items-center gap-1.5 hover:bg-pink"
+                            disabled={deleteMutation.isPending}
+                            className="brutal-border brutal-press bg-paper px-3 py-2 font-mono text-[11px] font-bold uppercase tracking-widest inline-flex items-center gap-1.5 hover:bg-pink disabled:opacity-50"
                         >
                             <Trash2 className="h-3.5 w-3.5" /> Delete
                         </button>
@@ -642,7 +750,7 @@ export function ExpenseDialog({ open, onClose, editing, initial }: Props) {
                         </button>
                         <button
                             onClick={onSave}
-                            disabled={!canSave}
+                            disabled={!canSave || addMutation.isPending || updateMutation.isPending}
                             className="brutal-border brutal-shadow-sm brutal-press bg-pink px-4 py-2 font-mono text-[11px] font-bold uppercase tracking-widest disabled:opacity-40"
                         >
                             {editing ? "Save changes" : "Save entry"}

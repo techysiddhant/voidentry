@@ -1,23 +1,19 @@
 "use client";
 
-// PaymentMethodsSection — manages saved payment methods.
-// Fully integrated with TanStack Form and Zod client-side validation.
-
 import { useState } from "react";
 import { Plus, Trash2, Pencil, Check, X } from "lucide-react";
 import { useForm } from "@tanstack/react-form";
 import { paymentMethodSchema } from "@/lib/validations/settings";
-import type { PaymentMethod, PaymentType } from "./types";
-import { PAYMENT_META } from "@/lib/expense-store";
 import { Section } from "./section";
-
-const PAY_TYPES: PaymentType[] = ["cash", "card", "upi", "netbanking", "wallet"];
+import { PaymentMethod, PaymentType } from "@/types/payment";
 
 interface Props {
     paymentMethods: PaymentMethod[];
+    paymentMethodTypes: { code: string; name: string }[];
     onAdd: (method: Omit<PaymentMethod, "id">) => Promise<unknown>;
     onUpdate: (id: string, method: Omit<PaymentMethod, "id">) => Promise<unknown>;
     onRemove: (id: string) => void;
+    disabled?: boolean;
 }
 
 function validateLabel(value: string): string | undefined {
@@ -30,12 +26,16 @@ function validateHint(value: string): string | undefined {
     if (!res.success) return res.error.issues[0].message;
 }
 
-export function PaymentMethodsSection({ paymentMethods, onAdd, onUpdate, onRemove }: Props) {
+export function PaymentMethodsSection({ paymentMethods, paymentMethodTypes, onAdd, onUpdate, onRemove, disabled = false }: Props) {
     const [editingId, setEditingId] = useState<string | null>(null);
+
+    const getPaymentTypeName = (typeCode: string) => {
+        return paymentMethodTypes.find((t) => t.code === typeCode)?.name ?? typeCode;
+    };
 
     const form = useForm({
         defaultValues: {
-            type: "card" as PaymentType,
+            type: (paymentMethodTypes[0]?.code || "card") as PaymentType,
             label: "",
             hint: "",
         },
@@ -87,7 +87,7 @@ export function PaymentMethodsSection({ paymentMethods, onAdd, onUpdate, onRemov
                             >
                                 <div className="flex items-center gap-2 min-w-0">
                                     <span className="brutal-border bg-secondary px-2 py-0.5 font-mono text-[10px] font-bold uppercase tracking-widest shrink-0">
-                                        {PAYMENT_META[pm.type].label}
+                                        {getPaymentTypeName(pm.type)}
                                     </span>
                                     <span className="font-mono text-sm text-ink truncate">
                                         {pm.label}
@@ -101,8 +101,9 @@ export function PaymentMethodsSection({ paymentMethods, onAdd, onUpdate, onRemov
                                 <div className="flex items-center gap-1.5 shrink-0">
                                     <button
                                         onClick={() => startEdit(pm)}
+                                        disabled={disabled}
                                         aria-label={`Edit ${pm.label}`}
-                                        className="brutal-border h-7 w-7 flex items-center justify-center bg-paper hover:bg-yellow transition-colors"
+                                        className="brutal-border h-7 w-7 flex items-center justify-center bg-paper hover:bg-yellow transition-colors disabled:opacity-50 disabled:pointer-events-none"
                                     >
                                         <Pencil className="h-3 w-3" />
                                     </button>
@@ -111,8 +112,9 @@ export function PaymentMethodsSection({ paymentMethods, onAdd, onUpdate, onRemov
                                             if (editingId === pm.id) resetForm();
                                             onRemove(pm.id);
                                         }}
+                                        disabled={disabled}
                                         aria-label={`Remove ${pm.label}`}
-                                        className="brutal-border h-7 w-7 flex items-center justify-center bg-paper hover:bg-pink transition-colors"
+                                        className="brutal-border h-7 w-7 flex items-center justify-center bg-paper hover:bg-pink transition-colors disabled:opacity-50 disabled:pointer-events-none"
                                     >
                                         <Trash2 className="h-3 w-3" />
                                     </button>
@@ -141,8 +143,9 @@ export function PaymentMethodsSection({ paymentMethods, onAdd, onUpdate, onRemov
                             <button
                                 type="button"
                                 onClick={resetForm}
+                                disabled={disabled}
                                 aria-label="Cancel edit"
-                                className="brutal-border bg-paper h-6 w-6 flex items-center justify-center"
+                                className="brutal-border bg-paper h-6 w-6 flex items-center justify-center disabled:opacity-50 disabled:pointer-events-none"
                             >
                                 <X className="h-3 w-3" />
                             </button>
@@ -157,20 +160,21 @@ export function PaymentMethodsSection({ paymentMethods, onAdd, onUpdate, onRemov
                                 role="group"
                                 aria-label="Payment type"
                             >
-                                {PAY_TYPES.map((t) => (
+                                {paymentMethodTypes.map((t) => (
                                     <button
-                                        key={t}
+                                        key={t.code}
                                         type="button"
-                                        onClick={() => field.handleChange(t)}
-                                        aria-pressed={field.state.value === t}
+                                        onClick={() => field.handleChange(t.code)}
+                                        disabled={disabled}
+                                        aria-pressed={field.state.value === t.code}
                                         className={[
-                                            "brutal-border brutal-press px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-widest transition-colors",
-                                            field.state.value === t
+                                            "brutal-border brutal-press px-2.5 py-1 font-mono text-[10px] font-bold uppercase tracking-widest transition-colors disabled:opacity-50 disabled:pointer-events-none",
+                                            field.state.value === t.code
                                                 ? "bg-teal text-paper"
                                                 : "bg-paper text-ink",
                                         ].join(" ")}
                                     >
-                                        {PAYMENT_META[t].label}
+                                        {t.name}
                                     </button>
                                 ))}
                             </div>
@@ -178,49 +182,51 @@ export function PaymentMethodsSection({ paymentMethods, onAdd, onUpdate, onRemov
                     </form.Field>
 
                     {/* Label Input */}
-                    <form.Field
-                        name="label"
-                        validators={{
-                            onChange: ({ value }) => validateLabel(value),
-                        }}
-                    >
-                        {(field) => {
-                            const pmType = form.getFieldValue("type");
-                            return (
-                                <div>
-                                    <input
-                                        id={field.name}
-                                        name={field.name}
-                                        value={field.state.value}
-                                        onChange={(e) => field.handleChange(e.target.value)}
-                                        onBlur={field.handleBlur}
-                                        placeholder={
-                                            pmType === "card"
-                                                ? "card name (e.g. HDFC Millennia)"
-                                                : `name (e.g. Personal ${PAYMENT_META[pmType].label})`
-                                        }
-                                        aria-label="Method name"
-                                        aria-invalid={field.state.meta.errors.length > 0}
-                                        aria-describedby={
-                                            field.state.meta.errors.length > 0
-                                                ? `${field.name}-error`
-                                                : undefined
-                                        }
-                                        className="w-full brutal-border bg-paper px-3 py-2 font-mono text-sm focus:outline-none"
-                                    />
-                                    {field.state.meta.errors.length > 0 && (
-                                        <p
-                                            id={`${field.name}-error`}
-                                            role="alert"
-                                            className="mt-1 font-mono text-[10px] uppercase tracking-widest text-red-500"
-                                        >
-                                            {field.state.meta.errors[0]}
-                                        </p>
-                                    )}
-                                </div>
-                            );
-                        }}
-                    </form.Field>
+                    <form.Subscribe selector={(s) => s.values.type}>
+                        {(pmType) => (
+                            <form.Field
+                                name="label"
+                                validators={{
+                                    onChange: ({ value }) => validateLabel(value),
+                                }}
+                            >
+                                {(field) => (
+                                    <div>
+                                        <input
+                                            id={field.name}
+                                            name={field.name}
+                                            value={field.state.value}
+                                            onChange={(e) => field.handleChange(e.target.value)}
+                                            onBlur={field.handleBlur}
+                                            placeholder={
+                                                pmType === "card"
+                                                    ? "card name (e.g. HDFC Millennia)"
+                                                    : `name (e.g. Personal ${getPaymentTypeName(pmType)})`
+                                            }
+                                            aria-label="Method name"
+                                            disabled={disabled}
+                                            aria-invalid={field.state.meta.errors.length > 0}
+                                            aria-describedby={
+                                                field.state.meta.errors.length > 0
+                                                    ? `${field.name}-error`
+                                                    : undefined
+                                            }
+                                            className="w-full brutal-border bg-paper px-3 py-2 font-mono text-sm focus:outline-none disabled:bg-secondary disabled:text-mute"
+                                        />
+                                        {field.state.meta.errors.length > 0 && (
+                                            <p
+                                                id={`${field.name}-error`}
+                                                role="alert"
+                                                className="mt-1 font-mono text-[10px] uppercase tracking-widest text-red-500"
+                                            >
+                                                {field.state.meta.errors[0]}
+                                            </p>
+                                        )}
+                                    </div>
+                                )}
+                            </form.Field>
+                        )}
+                    </form.Subscribe>
 
                     {/* Hint Input */}
                     <form.Field
@@ -239,13 +245,14 @@ export function PaymentMethodsSection({ paymentMethods, onAdd, onUpdate, onRemov
                                     onBlur={field.handleBlur}
                                     placeholder="optional hint (e.g. ··1234 or upi handle)"
                                     aria-label="Optional hint"
+                                    disabled={disabled}
                                     aria-invalid={field.state.meta.errors.length > 0}
                                     aria-describedby={
                                         field.state.meta.errors.length > 0
                                             ? `${field.name}-error`
                                             : undefined
                                     }
-                                    className="w-full brutal-border bg-paper px-3 py-2 font-mono text-sm focus:outline-none"
+                                    className="w-full brutal-border bg-paper px-3 py-2 font-mono text-sm focus:outline-none disabled:bg-secondary disabled:text-mute"
                                 />
                                 {field.state.meta.errors.length > 0 && (
                                     <p
@@ -264,7 +271,8 @@ export function PaymentMethodsSection({ paymentMethods, onAdd, onUpdate, onRemov
                     <div className="flex justify-end">
                         <button
                             type="submit"
-                            className="brutal-border brutal-press bg-yellow px-3 py-2 font-mono text-[11px] font-bold uppercase tracking-widest inline-flex items-center gap-1.5"
+                            disabled={disabled}
+                            className="brutal-border brutal-press bg-yellow px-3 py-2 font-mono text-[11px] font-bold uppercase tracking-widest inline-flex items-center gap-1.5 disabled:opacity-50 disabled:pointer-events-none"
                         >
                             {editingId ? (
                                 <>

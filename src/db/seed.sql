@@ -1,9 +1,0 @@
--- Canonical category seeding now lives in `scripts/catalog-data.mjs`
--- and should be applied via:
---   npm run db:seed:local
---   npm run db:reset-seed:local
---   npm run db:seed:remote
---   npm run db:reset-seed:remote
---
--- This file is intentionally left as a pointer so static literal IDs
--- like `cat-*` / `sub-*` are no longer treated as the source of truth.

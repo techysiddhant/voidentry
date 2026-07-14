@@ -1,11 +1,21 @@
 import { useMemo } from "react";
 import { X } from "lucide-react";
-import { PAYMENT_META, useExpenses, type Expense, type PaymentType } from "@/lib/expense-store";
+import { useQuery } from "@tanstack/react-query";
+import { settingsApi } from "@/lib/api/settings";
+import { cyclesApi } from "@/lib/api/cycles";
+import { QUERY_KEYS } from "@/lib/query-keys";
+import type { Expense } from "@/types/expense";
 import { activeFilterCount, type EntryFilter } from "@/lib/entry-filter";
 import { AmountHistogram } from "./amount-histogram";
-const PTS: PaymentType[] = ["cash", "card", "upi", "netbanking", "wallet"];
 
-function toggle<T>(arr: T[] | undefined, v: T): T[] | undefined {
+function getPaymentTypeShortLabel(code: string, name: string) {
+    if (code === "netbanking") return "Net";
+    if (code === "wallet") return "Wal";
+    if (code === "paylater") return "Later";
+    return name;
+}
+
+function toggle<T>(arr: T[] | undefined | null, v: T): T[] | undefined {
     const set = new Set(arr ?? []);
     if (set.has(v)) set.delete(v);
     else set.add(v);
@@ -26,39 +36,73 @@ export function FilterPanel({
     scopeExpenses: Expense[];
     onClose: () => void;
 }) {
-    const { paymentMethods, activeCycle, categories, subCategoriesByCategoryCode } = useExpenses();
-    const count = activeFilterCount(filter);
+    const { data: settings } = useQuery({
+        queryKey: QUERY_KEYS.SETTINGS,
+        queryFn: settingsApi.getSettings,
+    });
+
+    const { data: cycles } = useQuery({
+        queryKey: QUERY_KEYS.CYCLES,
+        queryFn: cyclesApi.getCycles,
+    });
+
+    const activeCycleId = settings?.preferences?.activeCycleId;
+    const activeCycle = useMemo(() => {
+        return cycles?.find((c) => c.id === activeCycleId);
+    }, [cycles, activeCycleId]);
+
+    const categories = useMemo(() => settings?.categories ?? [], [settings]);
+    const paymentMethods = useMemo(() => settings?.paymentMethods ?? [], [settings]);
+    const paymentMethodTypes = useMemo(() => settings?.paymentMethodTypes ?? [], [settings]);
+
+    const subCategoriesByCategoryCode = useMemo(() => {
+        const record: Record<string, any[]> = {};
+        settings?.subCategories?.forEach((s) => {
+            const arr = record[s.categoryCode] ?? [];
+            arr.push(s);
+            record[s.categoryCode] = arr;
+        });
+        return record;
+    }, [settings?.subCategories]);
 
     const availableSubs = useMemo(() => {
         const catCodes = filter.cats?.length ? filter.cats : categories.map((category) => category.code);
-        const seen = new Map<string, string>();
+        const seen = new Map<string, { categoryCode: string; code: string; name: string }>();
         for (const categoryCode of catCodes) {
             for (const subCategory of subCategoriesByCategoryCode[categoryCode] || []) {
-                seen.set(subCategory.code, subCategory.name);
+                const key = `${categoryCode}:${subCategory.code}`;
+                seen.set(key, { categoryCode, code: subCategory.code, name: subCategory.name });
             }
         }
         for (const expense of scopeExpenses) {
             if (expense.subCategory && catCodes.includes(expense.category.code)) {
-                seen.set(expense.subCategory.code, expense.subCategory.name);
+                const key = `${expense.category.code}:${expense.subCategory.code}`;
+                seen.set(key, { categoryCode: expense.category.code, code: expense.subCategory.code, name: expense.subCategory.name });
             }
         }
         return [...seen.entries()]
-            .map(([code, name]) => ({ code, name }))
+            .map(([key, item]) => ({ key, ...item }))
             .sort((a, b) => a.name.localeCompare(b.name));
     }, [categories, filter.cats, scopeExpenses, subCategoriesByCategoryCode]);
 
     const setPreset = (preset: "cycle" | "7d" | "30d" | "all") => {
         if (preset === "cycle") {
-            setFilter({ ...filter, scope: "cycle", from: undefined, to: undefined });
+            setFilter({ ...filter, scope: "cycle", from: null, to: null });
         } else if (preset === "all") {
-            setFilter({ ...filter, scope: "all", from: undefined, to: undefined });
+            setFilter({ ...filter, scope: "all", from: null, to: null });
         } else {
             const days = preset === "7d" ? 7 : 30;
+            const formatLocalDate = (date: Date) =>
+                [
+                    date.getFullYear(),
+                    String(date.getMonth() + 1).padStart(2, "0"),
+                    String(date.getDate()).padStart(2, "0"),
+                ].join("-");
             const today = new Date();
-            const to = today.toISOString().slice(0, 10);
+            const to = formatLocalDate(today);
             const fromD = new Date(today);
             fromD.setDate(today.getDate() - days + 1);
-            const from = fromD.toISOString().slice(0, 10);
+            const from = formatLocalDate(fromD);
             setFilter({ ...filter, scope: "all", from, to });
         }
     };
@@ -70,8 +114,8 @@ export function FilterPanel({
                 <div className="flex items-center gap-2">
                     <div className="font-mono text-[10px] uppercase tracking-[0.2em] text-mute">№ 002 ·</div>
                     <h2 className="font-serif text-2xl leading-none">Filters</h2>
-                    {count > 0 && (
-                        <span className="brutal-border bg-pink px-1.5 py-0.5 font-mono text-[10px] font-bold leading-none">{count}</span>
+                    {activeFilterCount(filter) > 0 && (
+                        <span className="brutal-border bg-pink px-1.5 py-0.5 font-mono text-[10px] font-bold leading-none">{activeFilterCount(filter)}</span>
                     )}
                 </div>
                 <button onClick={onClose} aria-label="Close" className="brutal-border brutal-press bg-paper h-7 w-7 flex items-center justify-center">
@@ -99,16 +143,16 @@ export function FilterPanel({
                         <input
                             type="date"
                             value={filter.from ?? ""}
-                            min={filter.scope === "cycle" ? activeCycle.start : undefined}
-                            max={filter.scope === "cycle" ? activeCycle.end : undefined}
-                            onChange={(e) => setFilter({ ...filter, from: e.target.value || undefined, scope: "all" })}
+                            min={filter.scope === "cycle" && activeCycle ? activeCycle.start : undefined}
+                            max={filter.scope === "cycle" && activeCycle ? activeCycle.end : undefined}
+                            onChange={(e) => setFilter({ ...filter, from: e.target.value || null, scope: "all" })}
                             className="brutal-border bg-paper px-2 py-1 font-mono text-xs flex-1 min-w-0"
                         />
                         <span className="font-mono text-xs text-mute">→</span>
                         <input
                             type="date"
                             value={filter.to ?? ""}
-                            onChange={(e) => setFilter({ ...filter, to: e.target.value || undefined, scope: "all" })}
+                            onChange={(e) => setFilter({ ...filter, to: e.target.value || null, scope: "all" })}
                             className="brutal-border bg-paper px-2 py-1 font-mono text-xs flex-1 min-w-0"
                         />
                     </div>
@@ -133,9 +177,9 @@ export function FilterPanel({
                     ) : (
                         <div className="flex flex-wrap gap-1.5">
                             {availableSubs.map((subCategory) => {
-                                const on = filter.subs?.includes(subCategory.code);
+                                const on = filter.subs?.includes(subCategory.key);
                                 return (
-                                    <Chip key={subCategory.code} on={!!on} onClick={() => setFilter({ ...filter, subs: toggle(filter.subs, subCategory.code) })}>
+                                    <Chip key={subCategory.key} on={!!on} onClick={() => setFilter({ ...filter, subs: toggle(filter.subs, subCategory.key) })}>
                                         {subCategory.name}
                                     </Chip>
                                 );
@@ -162,11 +206,11 @@ export function FilterPanel({
                     )}
                     <div className="mt-2 flex flex-wrap gap-1.5 items-center">
                         <span className="font-mono text-[10px] uppercase tracking-widest text-mute">type:</span>
-                        {PTS.map((p) => {
-                            const on = filter.pts?.includes(p);
+                        {paymentMethodTypes.map((pmType) => {
+                            const on = filter.pts?.includes(pmType.code);
                             return (
-                                <Chip key={p} on={!!on} onClick={() => setFilter({ ...filter, pts: toggle(filter.pts, p) })}>
-                                    {PAYMENT_META[p].short}
+                                <Chip key={pmType.code} on={!!on} onClick={() => setFilter({ ...filter, pts: toggle(filter.pts, pmType.code) })}>
+                                    {getPaymentTypeShortLabel(pmType.code, pmType.name)}
                                 </Chip>
                             );
                         })}
@@ -174,16 +218,16 @@ export function FilterPanel({
                 </Section>
 
                 <Section title="amount range (₹)">
-                    <AmountHistogram expenses={scopeExpenses} min={filter.min} max={filter.max} />
+                    <AmountHistogram expenses={scopeExpenses} min={filter.min ?? undefined} max={filter.max ?? undefined} />
                     <div className="mt-2 flex items-center gap-2">
-                        <NumInput placeholder="min" value={filter.min} onChange={(v) => setFilter({ ...filter, min: v })} />
+                        <NumInput placeholder="min" value={filter.min ?? undefined} onChange={(v) => setFilter({ ...filter, min: v ?? null })} />
                         <span className="font-mono text-xs text-mute">to</span>
-                        <NumInput placeholder="max" value={filter.max} onChange={(v) => setFilter({ ...filter, max: v })} />
+                        <NumInput placeholder="max" value={filter.max ?? undefined} onChange={(v) => setFilter({ ...filter, max: v ?? null })} />
                     </div>
                 </Section>
 
                 <Section title="other">
-                    <Chip on={!!filter.splitOnly} onClick={() => setFilter({ ...filter, splitOnly: filter.splitOnly ? undefined : true })}>
+                    <Chip on={!!filter.splitOnly} onClick={() => setFilter({ ...filter, splitOnly: filter.splitOnly ? null : true })}>
                         splits only
                     </Chip>
                 </Section>

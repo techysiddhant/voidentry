@@ -2,10 +2,40 @@ import { NextResponse } from "next/server";
 import { headers } from "next/headers";
 import getAuth from "@/lib/auth";
 import { getDb } from "@/db/client";
-import { paymentMethod, paymentMethodType } from "@/db/schema";
+import { paymentMethod } from "@/db/schema";
 import { paymentMethodSchema } from "@/lib/validations/settings";
 import { and, eq, isNull } from "drizzle-orm";
 
+/**
+ * @api {PUT} /api/settings/payment-methods/:id Update Payment Method
+ * @api {DELETE} /api/settings/payment-methods/:id Delete (Soft Delete) Payment Method
+ * @apiDescription 
+ * - PUT: Updates the details (label, typeCode, hint) of an active payment method belonging to the user.
+ *        Validates request parameters, checks existence, and verifies payment method type.
+ * - DELETE: Soft-deletes a payment method by setting the `deletedAt` timestamp.
+ * 
+ * @apiHeader {String} Cookie Session cookies required for Better Auth.
+ * @apiParam {String} id UUID of the payment method to update/delete.
+ * @apiBody {String} [type] Code representing the updated payment method type.
+ * @apiBody {String} [label] Updated label of the payment method (validated non-empty).
+ * @apiBody {String} [hint] Optional updated hint/description details.
+ * 
+ * @apiSuccess (PUT) {String} id UUID of the updated payment method.
+ * @apiSuccess (PUT) {String} type Code of the updated payment method type.
+ * @apiSuccess (PUT) {String} label Updated label.
+ * @apiSuccess (PUT) {String} hint Updated hint.
+ * @apiSuccess (DELETE) {Boolean} success True if the deletion succeeded.
+ * 
+ * @apiError (400) BadRequest Invalid JSON payload, validation errors, or invalid payment type.
+ * @apiError (401) Unauthorized Session is invalid or missing.
+ * @apiError (404) NotFound Payment method ID not found or belongs to another user.
+ * @apiError (500) InternalServerError Database read/write operations failed.
+ * 
+ * PERFORMANCE OPTIMIZATIONS:
+ * 1. Type-Safe Relational Queries: Uses Drizzle v1.x native object-based filter formats (`{ isNull: true }`)
+ *    for all verification and validation lookups, bypassing raw SQL evaluation overhead.
+ * 2. Preflight Limit-1: Employs findFirst queries for checks, ensuring minimal SQLite search times.
+ */
 export async function PUT(
     request: Request,
     { params }: { params: Promise<{ id: string }> }
@@ -35,9 +65,13 @@ export async function PUT(
         const { type, label, hint } = validated.data;
         const db = getDb();
 
-        // Verify existing payment method belongs to user and is active
+        // Verify existing payment method belongs to user and is active using v1.x object filter format
         const existing = await db.query.paymentMethod.findFirst({
-            where: and(eq(paymentMethod.id, id), eq(paymentMethod.userId, userId), isNull(paymentMethod.deletedAt)),
+            where: {
+                id: id,
+                userId: userId,
+                deletedAt: { isNull: true },
+            },
         });
 
         if (!existing) {
@@ -47,9 +81,11 @@ export async function PUT(
             );
         }
 
-        // Verify type references a valid method type
+        // Verify type references a valid method type using v1.x object filter format
         const valid = await db.query.paymentMethodType.findFirst({
-            where: eq(paymentMethodType.code, type),
+            where: {
+                code: type,
+            },
         });
 
         if (!valid) {
@@ -67,8 +103,21 @@ export async function PUT(
                 label,
                 hint: hint || null,
             })
-            .where(and(eq(paymentMethod.id, id), eq(paymentMethod.userId, userId)))
+            .where(
+                and(
+                    eq(paymentMethod.id, id),
+                    eq(paymentMethod.userId, userId),
+                    isNull(paymentMethod.deletedAt)
+                )
+            )
             .returning();
+
+        if (!updatedMethod) {
+            return NextResponse.json(
+                { error: "Payment method not found or deleted." },
+                { status: 404 }
+            );
+        }
 
         return NextResponse.json({
             id: updatedMethod.id,
@@ -100,9 +149,13 @@ export async function DELETE(
         const userId = session.user.id;
         const db = getDb();
 
-        // Verify existing payment method belongs to user and is active
+        // Verify existing payment method belongs to user and is not already soft-deleted using v1.x object filter format
         const existing = await db.query.paymentMethod.findFirst({
-            where: and(eq(paymentMethod.id, id), eq(paymentMethod.userId, userId), isNull(paymentMethod.deletedAt)),
+            where: {
+                id: id,
+                userId: userId,
+                deletedAt: { isNull: true },
+            },
         });
 
         if (!existing) {

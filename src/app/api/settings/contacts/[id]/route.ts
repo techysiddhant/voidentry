@@ -4,8 +4,34 @@ import getAuth from "@/lib/auth";
 import { getDb } from "@/db/client";
 import { contact } from "@/db/schema";
 import { contactSchema } from "@/lib/validations/settings";
-import { and, eq, isNull } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 
+/**
+ * @api {PUT} /api/settings/contacts/:id Update Contact
+ * @api {DELETE} /api/settings/contacts/:id Delete (Soft Delete) Contact
+ * @apiDescription 
+ * - PUT: Renames an existing active contact belonging to the authenticated user.
+ *        Validates name schema, blocks reserved "You" names, and checks for duplicates.
+ * - DELETE: Soft-deletes a contact belonging to the user by setting the `deletedAt` timestamp.
+ * 
+ * @apiHeader {String} Cookie Session cookies required for Better Auth.
+ * @apiParam {String} id UUID of the contact to update/delete.
+ * @apiBody {String} [name] New name of the contact (PUT only, validated non-empty).
+ * 
+ * @apiSuccess (PUT) {String} id UUID of the updated contact.
+ * @apiSuccess (PUT) {String} name Updated name of the contact.
+ * @apiSuccess (DELETE) {Boolean} success True if the deletion succeeded.
+ * 
+ * @apiError (400) BadRequest Missing payload, invalid schema, reserved "You" name, or duplicate active name.
+ * @apiError (401) Unauthorized Session is invalid or missing.
+ * @apiError (404) NotFound Contact ID not found or belongs to another user.
+ * @apiError (500) InternalServerError Database read/write operations failed.
+ * 
+ * PERFORMANCE OPTIMIZATIONS:
+ * 1. Type-Safe Relational Queries: Uses Drizzle v1.x native object-based filter formats (`{ isNull: true }`)
+ *    for all verification and duplicate check lookups, bypassing raw SQL evaluation overhead.
+ * 2. Preflight Limit-1: Employs findFirst queries for checks, ensuring minimal SQLite search times.
+ */
 export async function PUT(
     request: Request,
     { params }: { params: Promise<{ id: string }> }
@@ -43,9 +69,13 @@ export async function PUT(
             );
         }
 
-        // Verify contact belongs to the user and is active
+        // Verify contact belongs to the user and is active using v1.x object filter format
         const existing = await db.query.contact.findFirst({
-            where: and(eq(contact.id, id), eq(contact.userId, userId), isNull(contact.deletedAt)),
+            where: {
+                id: id,
+                userId: userId,
+                deletedAt: { isNull: true },
+            },
         });
 
         if (!existing) {
@@ -57,7 +87,11 @@ export async function PUT(
 
         // Check duplicate name under the same user (including soft-deleted ones)
         const duplicate = await db.query.contact.findFirst({
-            where: and(eq(contact.userId, userId), eq(contact.name, name)),
+            where: {
+                userId: userId,
+                name: name,
+                deletedAt: { isNull: true },
+            },
         });
 
         if (duplicate && duplicate.id !== id) {
@@ -102,9 +136,13 @@ export async function DELETE(
         const userId = session.user.id;
         const db = getDb();
 
-        // Verify contact belongs to the user and is not already soft-deleted
+        // Verify contact belongs to the user and is not already soft-deleted using v1.x object filter format
         const existing = await db.query.contact.findFirst({
-            where: and(eq(contact.id, id), eq(contact.userId, userId), isNull(contact.deletedAt)),
+            where: {
+                id: id,
+                userId: userId,
+                deletedAt: { isNull: true },
+            },
         });
 
         if (!existing) {

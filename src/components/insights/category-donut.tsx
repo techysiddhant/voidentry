@@ -1,6 +1,6 @@
 "use client";
 
-import { type Expense } from "@/lib/expense-store";
+import type { Expense } from "@/types/expense";
 import { useMemo } from "react";
 import { totalsByCategory } from "@/lib/insights";
 import { chartColorFromClass } from "@/lib/catalog";

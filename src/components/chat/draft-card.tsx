@@ -2,8 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import { Check, Clock, Pencil, Users, X } from "lucide-react";
-import { PAYMENT_META, formatMoney, useExpenses } from "@/lib/expense-store";
-import type { PendingDraft } from "@/types/expense";
+import { useQuery } from "@tanstack/react-query";
+import { formatMoney } from "@/lib/utils";
+import { settingsApi } from "@/lib/api/settings";
+import { QUERY_KEYS } from "@/lib/query-keys";
+import type { PendingDraft } from "@/types/chat";
 
 interface DraftCardProps {
     draft: PendingDraft;
@@ -16,6 +19,22 @@ interface DraftCardProps {
 
 const AUTO_CONFIRM_SECS = 10;
 
+function getShortPaymentType(name: string): string {
+    if (!name) return "";
+    const lower = name.toLowerCase();
+    if (lower.includes("net") || lower.includes("banking")) return "Net";
+    if (lower.includes("later")) return "Later";
+    if (lower.includes("wallet")) return "Wal";
+    if (name.length > 5) {
+        const parts = name.split(/\s+/);
+        if (parts[0].length > 4) {
+            return parts[0].slice(0, 3) + ".";
+        }
+        return parts[0];
+    }
+    return name;
+}
+
 export function DraftCard({
     draft,
     status,
@@ -24,7 +43,17 @@ export function DraftCard({
     onDiscard,
     onEdit,
 }: DraftCardProps) {
-    const { categoryByCode, subCategoryByCode } = useExpenses();
+    const { data: settings } = useQuery({
+        queryKey: QUERY_KEYS.SETTINGS,
+        queryFn: settingsApi.getSettings,
+    });
+
+    const categoryByCode: Record<string, any> = {};
+    settings?.categories?.forEach((c) => { categoryByCode[c.code] = c; });
+
+    const subCategoryByCode: Record<string, any> = {};
+    settings?.subCategories?.forEach((sc) => { subCategoryByCode[sc.code] = sc; });
+
     const [countdown, setCountdown] = useState(AUTO_CONFIRM_SECS);
     const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -66,9 +95,14 @@ export function DraftCard({
 
     const category = categoryByCode[draft.categoryCode];
     const subCategory = draft.subCategoryCode ? subCategoryByCode[draft.subCategoryCode] : undefined;
-    const pay = PAYMENT_META[draft.payment.type];
+
+    const pmType = settings?.paymentMethodTypes?.find((t) => t.code === draft.payment.type);
+    const payLabel = pmType?.name ?? draft.payment.type;
+    const payShort = getShortPaymentType(payLabel);
+
     const dimmed = status === "discarded";
     const progressPct = ((AUTO_CONFIRM_SECS - countdown) / AUTO_CONFIRM_SECS) * 100;
+
 
     return (
         <div className={`brutal-border brutal-shadow-sm bg-paper relative max-w-md ${dimmed ? "opacity-40" : ""}`}>
@@ -101,7 +135,7 @@ export function DraftCard({
                         })}
                     </span>
                     <span>·</span>
-                    <span>{pay.short}</span>
+                    <span>{payShort}</span>
                     {draft.split && (
                         <>
                             <span>·</span>

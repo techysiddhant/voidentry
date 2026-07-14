@@ -1,5 +1,5 @@
-import { http } from "../http";
-import type { Cycle } from "@/lib/expense-store";
+import { Cycle } from "@/types/cycle";
+import { http } from "./http";
 
 export const cyclesApi = {
     getCycles: (): Promise<Cycle[]> =>

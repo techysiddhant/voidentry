@@ -1,3 +1,4 @@
+
 import { defineConfig } from "drizzle-kit";
 import { readdirSync } from "fs";
 import { join } from "path";
@@ -26,7 +27,6 @@ export default defineConfig({
     schema: "./src/db/schema.ts",
     out: "./migrations",
     dbCredentials: {
-        // url: getLocalD1Path(),
-        url: pathToFileURL(getLocalD1Path()).href,
+        url: getLocalD1Path(),
     },
 });

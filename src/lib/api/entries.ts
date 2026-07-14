@@ -1,19 +1,29 @@
-import { http } from "../http";
-import type { Expense, ExpenseInput, ExpenseCreateInput } from "@/types/expense";
+import { http } from "./http";
+import { Expense, ExpenseCreateInput, PaginatedResponse } from "@/types/expense";
 
 export const entriesApi = {
-    getEntries: (params: { cycleId: string }): Promise<Expense[]> =>
-        http.get("/entries", { params }).then((res) => res.data),
+    getEntries: (params: Record<string, any>): Promise<PaginatedResponse<Expense>> => {
+        // Clean up arrays by joining them with commas, and remove nullish values
+        const cleanedParams: Record<string, any> = {};
+        for (const [key, val] of Object.entries(params)) {
+            if (val == null) continue;
+            if (Array.isArray(val)) {
+                if (val.length > 0) {
+                    cleanedParams[key] = val.join(",");
+                }
+            } else {
+                cleanedParams[key] = val;
+            }
+        }
+        return http.get(`/entries`, { params: cleanedParams }).then((res) => res.data);
+    },
 
-    addEntry: (input: ExpenseCreateInput): Promise<Expense> =>
-        http.post("/entries", input).then((res) => res.data),
+    addEntry: (data: ExpenseCreateInput): Promise<Expense> =>
+        http.post("/entries", data).then((res) => res.data),
 
-    updateEntry: (id: string, input: ExpenseCreateInput): Promise<Expense> =>
-        http.put(`/entries/${id}`, input).then((res) => res.data),
+    updateEntry: (id: string, data: ExpenseCreateInput): Promise<Expense> =>
+        http.put(`/entries/${id}`, data).then((res) => res.data),
 
-    deleteEntry: (id: string): Promise<{ success: boolean }> =>
+    removeEntry: (id: string): Promise<unknown> =>
         http.delete(`/entries/${id}`).then((res) => res.data),
-
-    addCustomSubCategory: (data: { categoryCode: string; name: string }): Promise<{ id: string; categoryCode: string; code: string; name: string; sortOrder: number }> =>
-        http.post("/settings/sub-categories", data).then((res) => res.data),
 };
