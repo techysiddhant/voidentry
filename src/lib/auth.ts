@@ -8,12 +8,21 @@ import { createAuthMiddleware, APIError } from "better-auth/api";
 import { signupSchema, signinSchema } from "@/lib/validations/auth";
 
 const getAuth = () => {
-    const { env } = getCloudflareContext();
+    let env: any = {};
+    try {
+        const ctx = getCloudflareContext();
+        env = ctx.env || {};
+    } catch {
+        env = process.env || {};
+    }
 
-    if (!env || !env.BETTER_AUTH_SECRET) {
+    const secret = env.BETTER_AUTH_SECRET || process.env.BETTER_AUTH_SECRET;
+    const url = env.BETTER_AUTH_URL || process.env.BETTER_AUTH_URL;
+
+    if (!secret) {
         throw new Error("BETTER_AUTH_SECRET environment variable is missing.");
     }
-    if (!env.BETTER_AUTH_URL) {
+    if (!url) {
         throw new Error("BETTER_AUTH_URL environment variable is missing.");
     }
 

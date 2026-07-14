@@ -4,7 +4,7 @@ import getAuth from "@/lib/auth";
 import { getDb } from "@/db/client";
 import { paymentMethod } from "@/db/schema";
 import { paymentMethodSchema } from "@/lib/validations/settings";
-import { and, eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 
 /**
  * @api {PUT} /api/settings/payment-methods/:id Update Payment Method
@@ -103,8 +103,21 @@ export async function PUT(
                 label,
                 hint: hint || null,
             })
-            .where(and(eq(paymentMethod.id, id), eq(paymentMethod.userId, userId)))
+            .where(
+                and(
+                    eq(paymentMethod.id, id),
+                    eq(paymentMethod.userId, userId),
+                    isNull(paymentMethod.deletedAt)
+                )
+            )
             .returning();
+
+        if (!updatedMethod) {
+            return NextResponse.json(
+                { error: "Payment method not found or deleted." },
+                { status: 404 }
+            );
+        }
 
         return NextResponse.json({
             id: updatedMethod.id,

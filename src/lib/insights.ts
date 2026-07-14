@@ -36,3 +36,22 @@ export function buildDailySeries(cycle: Cycle, expenses: Expense[]): DayPoint[] 
     }
     return pts;
 }
+export function cumulative(points: DayPoint[]) {
+    let run = 0;
+    return points.map((p) => {
+        run += p.total;
+        return { ...p, cum: run };
+    });
+}
+
+
+export function todayDayIndex(cycle: Cycle) {
+    const now = new Date();
+    const today = isoFromDate(now);
+    if (today < cycle.start) return 0;
+    if (today > cycle.end) return daysBetween(cycle.start, cycle.end) - 1;
+    return daysBetween(cycle.start, today) - 1;
+}
+function isoFromDate(d: Date) {
+    return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate())).toISOString().slice(0, 10);
+}
