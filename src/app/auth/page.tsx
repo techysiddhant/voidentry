@@ -12,6 +12,7 @@ import { authClient } from "@/lib/auth-client";
 import { signupSchema } from "@/lib/validations/auth";
 import { toast } from "react-hot-toast";
 import SignupForm from "@/components/SignupForm";
+import { BetaBadge } from "@/components/beta-badge";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -93,7 +94,8 @@ export default function AuthPage() {
             <header className="border-b-2 border-ink">
                 <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-5">
                     <Link href="/" className="font-serif text-3xl leading-none tracking-tight">
-                        Ledger<span className="text-pink">.</span>
+                        Voidentry<span className="text-pink">.</span> {" "}
+                        <BetaBadge />
                     </Link>
                 </div>
             </header>
