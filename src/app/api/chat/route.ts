@@ -6,7 +6,7 @@ import { requireSession } from "@/lib/services/auth/require-session";
 import { validateRequest } from "@/lib/utils/validate-request";
 import { parseChatMessage } from "@/lib/services/chat/chat-service";
 
-export const runtime = "edge";
+
 
 /**
  * @api {POST} /api/chat  Parse Expense from Natural Language
