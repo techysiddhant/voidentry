@@ -1,7 +1,13 @@
+"use client";
+
 import { ArrowRight, Check, Users } from "lucide-react";
 import Link from "next/link";
+import { authClient } from "@/lib/auth-client";
 
 const Hero = () => {
+    const { data: session } = authClient.useSession();
+    const trackingUrl = session ? "/app" : "/auth";
+
     return (<section className="border-b-2 border-ink">
         <div className="mx-auto grid max-w-7xl grid-cols-1 gap-12 px-6 py-20 md:py-24 lg:grid-cols-12">
             <div className="lg:col-span-6">
@@ -19,7 +25,7 @@ const Hero = () => {
                 </p>
                 <div className="mt-10 flex flex-wrap items-center gap-4">
                     <Link
-                        href="/auth"
+                        href={trackingUrl}
                         className="brutal-border brutal-shadow brutal-press inline-flex items-center gap-3 bg-pink px-6 py-4 font-mono text-sm font-bold uppercase tracking-widest"
                     >
                         Start tracking <ArrowRight className="h-4 w-4" />

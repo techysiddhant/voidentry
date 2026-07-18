@@ -11,6 +11,7 @@ import Link from "next/link";
 import { ActiveCycleWidget } from "./active-cycle-widget";
 import { SidebarNav } from "./sidebar-nav";
 import { NavUser } from "./sidebar-footer";
+import { BetaBadge } from "../beta-badge";
 
 export function AppSidebar() {
     return (
@@ -19,14 +20,15 @@ export function AppSidebar() {
             <SidebarHeader className="border-b-2 border-ink bg-paper px-5 py-3 group-data-[collapsible=icon]:px-3 group-data-[collapsible=icon]:py-4">
                 {/* Full logo — visible when expanded */}
                 <Link
-                    href="/app"
+                    href="/"
                     className="font-serif text-3xl leading-none text-ink hover:no-underline group-data-[collapsible=icon]:hidden"
                 >
-                    Voidentry<span className="text-pink">.</span>
+                    Voidentry<span className="text-pink">.</span> {" "}
+                    <BetaBadge />
                 </Link>
                 {/* Icon-mode logo — just the 'L.' monogram, centred */}
                 <Link
-                    href="/app"
+                    href="/"
                     className="hidden font-serif text-[22px] leading-none text-ink hover:no-underline group-data-[collapsible=icon]:flex group-data-[collapsible=icon]:items-center group-data-[collapsible=icon]:justify-center"
                 >
                     V<span className="text-pink">.</span>

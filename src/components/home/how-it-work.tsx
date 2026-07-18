@@ -1,7 +1,13 @@
+"use client";
+
 import { ArrowRight } from "lucide-react";
 import Link from "next/link";
+import { authClient } from "@/lib/auth-client";
 
 function HowItWorks() {
+    const { data: session } = authClient.useSession();
+    const trackingUrl = session ? "/app" : "/auth";
+
     const steps = [
         { n: "01", title: "Type it", body: "“280 flat white”, “uber 240 yesterday”, “rent 28000”. Anything goes.", accent: "bg-pink" },
         { n: "02", title: "Confirm or tweak", body: "AI fills the draft. Add a split, change the payment method, set sub-category.", accent: "bg-yellow" },
@@ -27,7 +33,7 @@ function HowItWorks() {
                 </div>
                 <div className="mt-12 text-center">
                     <Link
-                        href="/auth"
+                        href={trackingUrl}
                         // search={{ mode: "signup" }}
                         className="brutal-border brutal-shadow brutal-press inline-flex items-center gap-3 bg-pink px-7 py-4 font-mono text-sm font-bold uppercase tracking-widest"
                     >
