@@ -44,7 +44,9 @@
 			"migrations_pattern": "migrations/*/migration.sql"
 		}
 	],
-	"upload_source_maps": true
+	"upload_source_maps": true,
+	"keep_vars": true
+
 	/**
 	 * Smart Placement
 	 * https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
