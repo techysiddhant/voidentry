@@ -4,6 +4,7 @@ import getAuth from "@/lib/auth";
 import { getDb } from "@/db/client";
 import { paymentMethod } from "@/db/schema";
 import { paymentMethodSchema } from "@/lib/validations/settings";
+import { captureServerEvent } from "@/lib/posthog-server";
 
 /**
  * @api {POST} /api/settings/payment-methods Create Payment Method
@@ -78,6 +79,11 @@ export async function POST(request: Request) {
                 hint: hint || null,
             })
             .returning();
+
+        await captureServerEvent(userId, "payment_method_saved", {
+            payment_type: type,
+            has_hint: Boolean(hint),
+        });
 
         return NextResponse.json({
             id: newMethod.id,

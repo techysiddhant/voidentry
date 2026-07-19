@@ -7,6 +7,7 @@ import { cycleSchema } from "@/lib/validations/settings";
 import { and, eq } from "drizzle-orm";
 import { getCalendarMonth } from "@/lib/utils";
 import { v7 as uuidv7 } from "uuid";
+import { captureServerEvent } from "@/lib/posthog-server";
 
 /**
  * @api {PUT} /api/cycles/:id Update Cycle
@@ -114,6 +115,10 @@ export async function PUT(
                 .where(and(eq(cycle.id, id), eq(cycle.userId, userId)))
                 .returning();
 
+            await captureServerEvent(userId, "cycle_updated", {
+                duration_days: Math.round((new Date(`${end}T00:00:00Z`).getTime() - new Date(`${start}T00:00:00Z`).getTime()) / 86_400_000) + 1,
+            });
+
             return NextResponse.json({ ...updatedCycle, total: 0 });
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : "";
@@ -216,6 +221,10 @@ export async function DELETE(
 
         // Run D1 atomic batch write
         await db.batch(batchQueries as [any, ...any[]]);
+
+        await captureServerEvent(userId, "cycle_deleted", {
+            was_active: isActiveCycle,
+        });
 
         return NextResponse.json({ success: true });
     } catch (error) {

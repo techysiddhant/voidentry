@@ -7,6 +7,7 @@ import { and, eq, isNull, sql } from "drizzle-orm";
 import { cycleSchema } from "@/lib/validations/settings";
 import { getCalendarMonth } from "@/lib/utils";
 import { v7 as uuidv7 } from "uuid";
+import { captureServerEvent } from "@/lib/posthog-server";
 
 /**
  * @api {GET} /api/cycles Get User Cycles
@@ -194,6 +195,11 @@ export async function POST(request: Request) {
             if (!createdCycle) {
                 throw new Error("Failed to create cycle");
             }
+
+            await captureServerEvent(userId, "cycle_created", {
+                duration_days: Math.round((new Date(`${end}T00:00:00Z`).getTime() - new Date(`${start}T00:00:00Z`).getTime()) / 86_400_000) + 1,
+            });
+
             return NextResponse.json({ ...createdCycle, total: 0 });
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : "";

@@ -3,6 +3,7 @@ import { z } from "zod";
 import getAuth from "@/lib/auth";
 import { getDb } from "@/db/client";
 import { consentAuditLogs } from "@/db/schema";
+import { captureServerEvent } from "@/lib/posthog-server";
 
 const signupConsentSchema = z.object({
     name: z.string().trim().min(2, "Name must be at least 2 characters."),
@@ -77,6 +78,12 @@ export async function POST(request: NextRequest) {
             purposeScope: ["manual_data_entry", "ai_financial_insights"],
             ipAddress,
             timestampUtc: new Date(),
+        });
+
+        await captureServerEvent(newUser.id, "account_created", {
+            authentication_method: "email_password",
+            terms_accepted: termsAccepted,
+            privacy_accepted: privacyAccepted,
         });
 
         // 4. Return success and forward headers (cookies) set by Better Auth

@@ -10,6 +10,7 @@ import { LogOut } from "lucide-react";
 import { authClient } from "@/lib/auth-client";
 import { Section, Row } from "./section";
 import toast from "react-hot-toast";
+import posthog from "posthog-js";
 
 export function AccountSection() {
     const { data: session } = authClient.useSession();
@@ -22,6 +23,7 @@ export function AccountSection() {
             await authClient.signOut({
                 fetchOptions: {
                     onSuccess: () => {
+                        posthog.reset();
                         toast.success("Signed out.");
                         router.push("/auth?mode=signin");
                     },

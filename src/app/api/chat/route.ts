@@ -5,6 +5,7 @@ import { ok } from "@/lib/utils/api-response";
 import { requireSession } from "@/lib/services/auth/require-session";
 import { validateRequest } from "@/lib/utils/validate-request";
 import { parseChatMessage } from "@/lib/services/chat/chat-service";
+import { captureServerEvent } from "@/lib/posthog-server";
 
 
 
@@ -31,11 +32,20 @@ export async function POST(request: Request) {
 
         const input = await validateRequest(request, chatInputSchema);
 
+        await captureServerEvent(session.user.id, "expense_parse_requested", {
+            has_previous_result: Boolean(input.previousResult),
+        });
+
         const response = await parseChatMessage({
             db: getDb(),
             userId: session.user.id,
             message: input.message,
             previousResult: input.previousResult,
+        });
+
+        await captureServerEvent(session.user.id, "expense_parse_completed", {
+            provider: response.provider,
+            requires_clarification: Boolean("clarification" in response.result),
         });
 
         return ok(response);

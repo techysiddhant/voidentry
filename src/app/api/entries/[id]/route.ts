@@ -11,6 +11,7 @@ import { ok } from "@/lib/utils/api-response";
 import { requireSession } from "@/lib/services/auth/require-session";
 import { validateRequest } from "@/lib/utils/validate-request";
 import { ApiError } from "@/lib/utils/api-error";
+import { captureServerEvent } from "@/lib/posthog-server";
 
 /**
  * @api {PUT} /api/entries/:id Update Entry
@@ -115,6 +116,13 @@ export async function PUT(
         // Run D1 atomic batch write
         await db.batch(batchQueries as [any, ...any[]]);
 
+        await captureServerEvent(userId, "expense_updated", {
+            category_code: input.categoryCode,
+            payment_type: input.payment.type,
+            has_split: Boolean(input.split),
+            has_subcategory: Boolean(input.subCategoryCode),
+        });
+
         return ok({
             id,
             amount: input.amount,
@@ -204,6 +212,8 @@ export async function DELETE(
         if (result.length === 0) {
             throw new ApiError(404, "Entry not found or already deleted");
         }
+
+        await captureServerEvent(userId, "expense_deleted");
 
         return ok({ success: true });
     });

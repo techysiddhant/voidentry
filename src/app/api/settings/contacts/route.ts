@@ -5,6 +5,7 @@ import { getDb } from "@/db/client";
 import { contact } from "@/db/schema";
 import { contactSchema } from "@/lib/validations/settings";
 import { and, eq, isNull, sql } from "drizzle-orm";
+import { captureServerEvent } from "@/lib/posthog-server";
 
 /**
  * @api {POST} /api/settings/contacts Create New Contact
@@ -88,6 +89,8 @@ export async function POST(request: Request) {
             .insert(contact)
             .values({ userId, name })
             .returning();
+
+        await captureServerEvent(userId, "contact_saved");
 
         return NextResponse.json({
             id: newContact.id,

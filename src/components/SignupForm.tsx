@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "react-hot-toast";
+import posthog from "posthog-js";
 
 export default function SignupForm() {
     const router = useRouter();
@@ -48,6 +49,10 @@ export default function SignupForm() {
                 throw new Error(data.error || "An error occurred during registration.");
             }
 
+            posthog.identify(data.user.id, {
+                email: data.user.email,
+                name: data.user.name,
+            });
             toast.success("Account created successfully!");
             router.refresh();
             router.replace("/app");

@@ -11,6 +11,7 @@ import { AppSidebar } from "@/components/sidebar/app-sidebar";
 import { authClient } from "@/lib/auth-client";
 import { Separator } from "@/components/ui/separator";
 import Link from "next/link";
+import posthog from "posthog-js";
 
 export default function UserRoutesLayout({ children }: { children: React.ReactNode }) {
     const router = useRouter();
@@ -21,6 +22,15 @@ export default function UserRoutesLayout({ children }: { children: React.ReactNo
             router.replace("/auth?mode=signin");
         }
     }, [session, isPending, router]);
+
+    useEffect(() => {
+        if (session?.user) {
+            posthog.identify(session.user.id, {
+                email: session.user.email,
+                name: session.user.name,
+            });
+        }
+    }, [session]);
 
     if (isPending || !session) {
         return (

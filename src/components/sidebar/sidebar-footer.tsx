@@ -24,6 +24,7 @@ import {
     AvatarImage,
 } from "@/components/ui/avatar";
 import toast from "react-hot-toast";
+import posthog from "posthog-js";
 
 function getInitials(name: string): string {
     return name
@@ -51,6 +52,7 @@ export function NavUser() {
             await authClient.signOut({
                 fetchOptions: {
                     onSuccess: () => {
+                        posthog.reset();
                         toast.success("Signed out.");
                         router.replace("/auth?mode=signin");
                     },

@@ -13,6 +13,7 @@ import { signupSchema } from "@/lib/validations/auth";
 import { toast } from "react-hot-toast";
 import SignupForm from "@/components/SignupForm";
 import { BetaBadge } from "@/components/beta-badge";
+import posthog from "posthog-js";
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -81,6 +82,14 @@ export default function AuthPage() {
                     return;
                 }
                 toast.success("Signed in successfully!");
+            }
+
+            const { data: session } = await authClient.getSession();
+            if (session?.user) {
+                posthog.identify(session.user.id, {
+                    email: session.user.email,
+                    name: session.user.name,
+                });
             }
 
             queryClient.clear();

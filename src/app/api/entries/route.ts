@@ -8,6 +8,7 @@ import { validateRequest } from "@/lib/utils/validate-request";
 import { parseSearchParams } from "@/lib/utils/parse-search-params";
 import { getEntries } from "@/lib/services/expense/get-entries";
 import { createExpense } from "@/lib/services/expense/create-expense";
+import { captureServerEvent } from "@/lib/posthog-server";
 
 /**
  * @api {GET} /api/entries  Paginated Cycle Entries
@@ -79,6 +80,13 @@ export async function POST(request: Request) {
             db: getDb(),
             userId: session.user.id,
             input: input as any,
+        });
+
+        await captureServerEvent(session.user.id, "expense_created", {
+            category_code: input.categoryCode,
+            payment_type: input.payment.type,
+            has_split: Boolean(input.split),
+            has_subcategory: Boolean(input.subCategoryCode),
         });
 
         return ok(result, 201);

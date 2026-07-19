@@ -4,6 +4,7 @@ import Link from "next/link";
 import { authClient } from "@/lib/auth-client";
 import { useRouter } from "next/navigation";
 import { BetaBadge } from "./beta-badge";
+import posthog from "posthog-js";
 
 const Header = () => {
     const router = useRouter();
@@ -13,6 +14,7 @@ const Header = () => {
         await authClient.signOut({
             fetchOptions: {
                 onSuccess: () => {
+                    posthog.reset();
                     router.push("/");
                     router.refresh();
                 },
