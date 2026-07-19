@@ -4,6 +4,7 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Toaster } from "@/components/ui/toaster";
 import Providers from "@/components/providers";
+import Script from "next/script";
 
 const geistMonoHeading = Geist_Mono({ subsets: ['latin'], variable: '--font-heading' });
 
@@ -37,6 +38,21 @@ export default function RootLayout({
 			<body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
 				<Toaster />
 				<Providers>{children}</Providers>
+				{/* Google tag (gtag.js) */}
+				{process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS && (
+					<>
+						<Script src={`https://www.googletagmanager.com/gtag/js?id=${process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS}`} strategy="afterInteractive" />
+						<Script id="google-analytics" strategy="afterInteractive">
+							{`
+								window.dataLayer = window.dataLayer || [];
+								function gtag(){window.dataLayer.push(arguments);}
+								gtag('js', new Date());
+
+								gtag('config', '${process.env.NEXT_PUBLIC_GOOGLE_ANALYTICS}');
+							`}
+						</Script>
+					</>
+				)}
 			</body>
 		</html>
 	);
